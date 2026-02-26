@@ -1,0 +1,125 @@
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 240px;
+  min-width: 240px;
+  background: var(--sidebar);
+  color: var(--sidebar-foreground);
+  padding: 1rem 0;
+  border-right: 1px solid var(--sidebar-border);
+}
+
+.sidebar-brand {
+  padding: 0 1.25rem 1rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  border-bottom: 1px solid var(--sidebar-border);
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav .nav-item {
+  padding: 0.65rem 1.25rem;
+  color: var(--sidebar-foreground);
+  opacity: 0.85;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+}
+
+.sidebar-nav .nav-item:hover {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+  opacity: 1;
+}
+
+.sidebar-nav .nav-item.active {
+  background: var(--sidebar-primary);
+  color: var(--sidebar-primary-foreground);
+  opacity: 1;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--card);
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.header-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.theme-toggle:hover {
+  background: var(--muted);
+}
+
+.theme-icon {
+  font-size: 1.1rem;
+}
+
+.theme-label {
+  font-weight: 500;
+}
+
+.page-content {
+  flex: 1;
+  padding: 1.5rem;
+  background: var(--background);
+}
+
+.dashboard h2 {
+  margin-top: 0;
+  color: var(--foreground);
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 64px;
+    min-width: 64px;
+  }
+  .sidebar-brand,
+  .sidebar-nav .nav-item {
+    padding-left: 0.75rem;
+    font-size: 0.9rem;
+  }
+  .sidebar-brand {
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

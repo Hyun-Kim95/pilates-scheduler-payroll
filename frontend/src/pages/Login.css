@@ -1,0 +1,83 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--background);
+  position: relative;
+}
+
+.login-theme-wrap {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  padding: 2rem;
+  background: var(--card);
+  color: var(--card-foreground);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.login-card h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  text-align: center;
+  color: var(--foreground);
+}
+
+.login-subtitle {
+  margin: 0 0 1.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.login-card form input {
+  display: block;
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.login-card form input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.login-card form button {
+  width: 100%;
+  padding: 0.65rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.login-card form button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.login-card form button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.login-error {
+  margin: -0.5rem 0 0.5rem;
+  color: var(--destructive);
+  font-size: 0.85rem;
+}
