@@ -5,6 +5,59 @@ import { sendReservationConfirmed, sendReservationCancelled } from '../services/
 
 const MAX_CAPACITY = 6;
 
+function timeToMinutes(t) {
+  if (!t) return 0;
+  const s = String(t).trim();
+  const parts = s.split(':');
+  const h = Number(parts[0]) || 0;
+  const m = Number(parts[1]) || 0;
+  return h * 60 + m;
+}
+
+function isTimeRangeWithinSlot(slotStart, slotEnd, resStart, resEnd) {
+  const slotStartMin = timeToMinutes(slotStart);
+  let slotEndMin = timeToMinutes(slotEnd);
+  const resStartMin = timeToMinutes(resStart);
+  let resEndMin = timeToMinutes(resEnd);
+  if (slotEndMin <= slotStartMin) slotEndMin += 24 * 60;
+  if (resEndMin <= resStartMin) resEndMin += 24 * 60;
+  if (resEndMin <= resStartMin) return false;
+  return resStartMin >= slotStartMin && resEndMin <= slotEndMin;
+}
+
+/** 회원이 해당 시간대와 겹치는 확정 예약 보유 여부 (동일 회원 기준)
+ *  - 같은 날짜(slotDate) 안에서만 검사
+ *  - [existing_start, existing_end) 와 [startTime, endTime) 이 진짜로 겹치는지 JS로 계산
+ *  - 끝과 시작이 딱 맞닿는 경우(예: 16~17, 17~18)는 겹치지 않는 것으로 처리
+ */
+async function hasMemberOverlappingReservation(memberId, slotDate, startTime, endTime, excludeReservationId = null) {
+  let sql = `SELECT r.id, r.start_time, r.end_time FROM reservations r
+    JOIN schedule_slots s ON r.schedule_slot_id = s.id
+    WHERE r.member_id = ? AND r.status = 'confirmed'
+    AND s.slot_date = ?`;
+  const params = [memberId, slotDate];
+  if (excludeReservationId) {
+    sql += ' AND r.id != ?';
+    params.push(excludeReservationId);
+  }
+  const rows = await query(sql, params);
+  if (!Array.isArray(rows) || rows.length === 0) return false;
+
+  const newStart = timeToMinutes(startTime);
+  const newEnd = timeToMinutes(endTime);
+  if (!newStart && !newEnd) return false;
+
+  // 두 구간 [aStart,aEnd), [bStart,bEnd) 가 겹치는지: !(aEnd <= bStart || aStart >= bEnd)
+  return rows.some((r) => {
+    const existStart = timeToMinutes(r.start_time);
+    const existEnd = timeToMinutes(r.end_time);
+    if (existEnd <= existStart) return false;
+    if (newEnd <= newStart) return false;
+    const noOverlap = (existEnd <= newStart) || (existStart >= newEnd);
+    return !noOverlap;
+  });
+}
+
 /** 슬롯별 확정 예약 수 조회 */
 async function getConfirmedCount(schedule_slot_id) {
   const rows = await query(
@@ -28,7 +81,9 @@ router.get('/', requireAuth, async (req, res) => {
   try {
     const { from, to, schedule_slot_id, member_id } = req.query;
     let sql = `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.created_at,
-               s.slot_date, s.start_time, s.end_time, s.instructor_id, i.name AS instructor_name, i.color,
+               r.start_time, r.end_time,
+               s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, s.instructor_id,
+               i.name AS instructor_name, i.color,
                m.name AS member_name, m.phone AS member_phone
                FROM reservations r
                JOIN schedule_slots s ON r.schedule_slot_id = s.id
@@ -58,7 +113,8 @@ router.get('/:id', requireAuth, async (req, res) => {
   try {
     const [row] = await query(
       `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.reminder_sent_at, r.created_at,
-       s.slot_date, s.start_time, s.end_time, s.instructor_id, i.name AS instructor_name, i.color,
+       r.start_time, r.end_time,
+       s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, s.instructor_id, i.name AS instructor_name, i.color,
        m.name AS member_name, m.phone AS member_phone
        FROM reservations r
        JOIN schedule_slots s ON r.schedule_slot_id = s.id
@@ -81,16 +137,19 @@ router.get('/:id', requireAuth, async (req, res) => {
 /** 예약 등록: 동시간대 6명(또는 슬롯 max_capacity) 검증 */
 router.post('/', requireAuth, async (req, res) => {
   try {
-    const { schedule_slot_id, member_id } = req.body || {};
+    const { schedule_slot_id, member_id, start_time: reqStartTime, end_time: reqEndTime } = req.body || {};
     if (!schedule_slot_id || !member_id) {
       return res.status(400).json({ error: '슬롯과 회원은 필수입니다.' });
     }
-    const [slot] = await query('SELECT id, instructor_id, max_capacity FROM schedule_slots WHERE id = ?', [schedule_slot_id]);
+    const [slot] = await query(
+      'SELECT id, instructor_id, max_capacity, slot_date, start_time, end_time FROM schedule_slots WHERE id = ?',
+      [schedule_slot_id]
+    );
     if (!slot) return res.status(404).json({ error: '슬롯을 찾을 수 없습니다.' });
     if (req.user.role === 'instructor' && slot.instructor_id !== req.user.instructorId) {
       return res.status(403).json({ error: '권한이 없습니다.' });
     }
-    const [member] = await query('SELECT id FROM members WHERE id = ?', [member_id]);
+    const [member] = await query('SELECT id, instructor_id FROM members WHERE id = ?', [member_id]);
     if (!member) return res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
 
     const confirmedCount = await getConfirmedCount(schedule_slot_id);
@@ -98,9 +157,21 @@ router.post('/', requireAuth, async (req, res) => {
     if (confirmedCount >= maxCap) {
       return res.status(400).json({ error: `해당 시간대는 최대 ${maxCap}명까지 예약 가능합니다.` });
     }
+
+    const reservationStart = reqStartTime || slot.start_time;
+    const reservationEnd = reqEndTime || slot.end_time;
+    if (!reservationStart || !reservationEnd) {
+      return res.status(400).json({ error: '시작/종료 시간은 필수입니다.' });
+    }
+    if (!isTimeRangeWithinSlot(slot.start_time, slot.end_time, reservationStart, reservationEnd)) {
+      return res.status(400).json({ error: '예약 시간은 슬롯 시간 범위 안에 있어야 합니다.' });
+    }
+    if (await hasMemberOverlappingReservation(member_id, slot.slot_date, reservationStart, reservationEnd)) {
+      return res.status(400).json({ error: '같은 회원이 해당 시간대에 이미 예약이 있습니다. 겹치는 시간에는 예약할 수 없습니다.' });
+    }
     const r = await query(
-      'INSERT INTO reservations (schedule_slot_id, member_id, status) VALUES (?, ?, ?)',
-      [schedule_slot_id, member_id, 'confirmed']
+      'INSERT INTO reservations (schedule_slot_id, member_id, start_time, end_time, status) VALUES (?, ?, ?, ?, ?)',
+      [schedule_slot_id, member_id, reservationStart, reservationEnd, 'confirmed']
     );
     const [slotInfo] = await query('SELECT s.slot_date, s.start_time, s.end_time, i.name AS instructor_name FROM schedule_slots s JOIN instructors i ON s.instructor_id = i.id WHERE s.id = ?', [schedule_slot_id]);
     const [memberInfo] = await query('SELECT name, phone FROM members WHERE id = ?', [member_id]);
@@ -108,13 +179,15 @@ router.post('/', requireAuth, async (req, res) => {
       sendReservationConfirmed(memberInfo.phone, {
         memberName: memberInfo.name,
         slotDate: slotInfo.slot_date,
-        startTime: slotInfo.start_time,
+        startTime: reservationStart,
         instructorName: slotInfo.instructor_name,
       }).catch(() => {});
     }
     const [row] = await query(
       `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.created_at,
-       s.slot_date, s.start_time, s.end_time, i.name AS instructor_name, m.name AS member_name
+       r.start_time, r.end_time,
+       s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time,
+       i.name AS instructor_name, m.name AS member_name
        FROM reservations r
        JOIN schedule_slots s ON r.schedule_slot_id = s.id
        JOIN instructors i ON s.instructor_id = i.id
@@ -122,7 +195,11 @@ router.post('/', requireAuth, async (req, res) => {
        WHERE r.id = ?`,
       [r.insertId]
     );
-    res.status(201).json(row);
+    const payload = { ...row };
+    if (member.instructor_id != null && Number(member.instructor_id) !== Number(slot.instructor_id)) {
+      payload.warning = '해당 회원의 담당 강사가 아닙니다.';
+    }
+    res.status(201).json(payload);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '예약 등록 실패' });
@@ -164,19 +241,33 @@ router.patch('/:id/move', requireAuth, async (req, res) => {
     const { schedule_slot_id: new_slot_id } = req.body || {};
     if (!new_slot_id) return res.status(400).json({ error: '변경할 슬롯(schedule_slot_id)이 필요합니다.' });
     const [existing] = await query(
-      'SELECT r.id, r.schedule_slot_id, s.instructor_id FROM reservations r JOIN schedule_slots s ON r.schedule_slot_id = s.id WHERE r.id = ?',
+      `SELECT r.id, r.schedule_slot_id, r.member_id, r.start_time, r.end_time,
+              s.instructor_id, s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time
+       FROM reservations r
+       JOIN schedule_slots s ON r.schedule_slot_id = s.id
+       WHERE r.id = ?`,
       [id]
     );
     if (!existing) return res.status(404).json({ error: '예약을 찾을 수 없습니다.' });
     if (req.user.role === 'instructor' && existing.instructor_id !== req.user.instructorId) {
       return res.status(403).json({ error: '권한이 없습니다.' });
     }
-    const [newSlot] = await query('SELECT id, instructor_id, max_capacity FROM schedule_slots WHERE id = ?', [new_slot_id]);
+    const [newSlot] = await query('SELECT id, instructor_id, max_capacity, slot_date, start_time, end_time FROM schedule_slots WHERE id = ?', [new_slot_id]);
     if (!newSlot) return res.status(404).json({ error: '변경할 슬롯을 찾을 수 없습니다.' });
     const confirmedCount = await getConfirmedCount(new_slot_id);
     const maxCap = Math.min(Number(newSlot.max_capacity) || 6, MAX_CAPACITY);
     if (confirmedCount >= maxCap) {
       return res.status(400).json({ error: `해당 시간대는 최대 ${maxCap}명까지 예약 가능합니다.` });
+    }
+
+    const reservationStart = existing.start_time;
+    const reservationEnd = existing.end_time;
+    if (!isTimeRangeWithinSlot(newSlot.start_time, newSlot.end_time, reservationStart, reservationEnd)) {
+      return res.status(400).json({ error: '예약 시간이 변경할 슬롯의 시간 범위를 벗어납니다.' });
+    }
+
+    if (await hasMemberOverlappingReservation(existing.member_id, newSlot.slot_date, reservationStart, reservationEnd, id)) {
+      return res.status(400).json({ error: '같은 회원이 해당 시간대에 이미 예약이 있습니다. 겹치는 시간에는 예약할 수 없습니다.' });
     }
     const send_notification = req.body?.send_notification === true || req.body?.send_notification === 'true';
     await query('UPDATE reservations SET schedule_slot_id = ? WHERE id = ?', [new_slot_id, id]);
@@ -187,14 +278,15 @@ router.patch('/:id/move', requireAuth, async (req, res) => {
         sendReservationConfirmed(memberRow.phone, {
           memberName: memberRow.name,
           slotDate: slotRow.slot_date,
-          startTime: slotRow.start_time,
+          startTime: reservationStart,
           instructorName: slotRow.instructor_name,
         }).catch(() => {});
       }
     }
     const [row] = await query(
       `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.created_at,
-       s.slot_date, s.start_time, s.end_time, i.name AS instructor_name
+       r.start_time, r.end_time,
+       s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, i.name AS instructor_name
        FROM reservations r JOIN schedule_slots s ON r.schedule_slot_id = s.id JOIN instructors i ON s.instructor_id = i.id WHERE r.id = ?`,
       [id]
     );
@@ -202,6 +294,70 @@ router.patch('/:id/move', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '예약 변경 실패' });
+  }
+});
+
+/** 예약 시간 수정 (동일 슬롯 내에서 시작/종료 시간 변경) */
+router.patch('/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { start_time: reqStartTime, end_time: reqEndTime } = req.body || {};
+    if (reqStartTime === undefined && reqEndTime === undefined) {
+      return res.status(400).json({ error: '수정할 시간이 없습니다.' });
+    }
+    const [existing] = await query(
+      `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.start_time, r.end_time,
+              s.instructor_id, s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time
+       FROM reservations r
+       JOIN schedule_slots s ON r.schedule_slot_id = s.id
+       WHERE r.id = ?`,
+      [id]
+    );
+    if (!existing) return res.status(404).json({ error: '예약을 찾을 수 없습니다.' });
+    if (req.user.role === 'instructor' && existing.instructor_id !== req.user.instructorId) {
+      return res.status(403).json({ error: '권한이 없습니다.' });
+    }
+    const newStart = reqStartTime !== undefined ? reqStartTime : existing.start_time;
+    const newEnd = reqEndTime !== undefined ? reqEndTime : existing.end_time;
+    if (!newStart || !newEnd) {
+      return res.status(400).json({ error: '시작/종료 시간은 필수입니다.' });
+    }
+    if (!isTimeRangeWithinSlot(existing.slot_start_time, existing.slot_end_time, newStart, newEnd)) {
+      return res.status(400).json({ error: '예약 시간은 슬롯 시간 범위 안에 있어야 합니다.' });
+    }
+    if (await hasMemberOverlappingReservation(existing.member_id, existing.slot_date, newStart, newEnd, id)) {
+      return res.status(400).json({ error: '같은 회원이 해당 시간대에 이미 예약이 있습니다. 겹치는 시간에는 예약할 수 없습니다.' });
+    }
+    const updates = [];
+    const params = [];
+    if (reqStartTime !== undefined) {
+      updates.push('start_time = ?');
+      params.push(newStart);
+    }
+    if (reqEndTime !== undefined) {
+      updates.push('end_time = ?');
+      params.push(newEnd);
+    }
+    if (updates.length === 0) {
+      return res.status(400).json({ error: '수정할 필드가 없습니다.' });
+    }
+    params.push(id);
+    await query(`UPDATE reservations SET ${updates.join(', ')} WHERE id = ?`, params);
+    const [row] = await query(
+      `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.created_at,
+       r.start_time, r.end_time,
+       s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, i.name AS instructor_name, m.name AS member_name
+       FROM reservations r
+       JOIN schedule_slots s ON r.schedule_slot_id = s.id
+       JOIN instructors i ON s.instructor_id = i.id
+       JOIN members m ON r.member_id = m.id
+       WHERE r.id = ?`,
+      [id]
+    );
+    res.json(row);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '예약 시간 수정 실패' });
   }
 });
 
@@ -223,5 +379,26 @@ router.patch('/:id/complete', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '완료 처리 실패' });
+  }
+});
+
+/** 수업 완료 원복: 관리자 또는 해당 강사 */
+router.patch('/:id/uncomplete', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const [existing] = await query(
+      'SELECT r.id, s.instructor_id FROM reservations r JOIN schedule_slots s ON r.schedule_slot_id = s.id WHERE r.id = ?',
+      [id]
+    );
+    if (!existing) return res.status(404).json({ error: '예약을 찾을 수 없습니다.' });
+    if (req.user.role === 'instructor' && existing.instructor_id !== req.user.instructorId) {
+      return res.status(403).json({ error: '권한이 없습니다.' });
+    }
+    await query('UPDATE reservations SET completed = 0 WHERE id = ? AND status = ?', [id, 'confirmed']);
+    const [row] = await query('SELECT id, schedule_slot_id, member_id, status, completed FROM reservations WHERE id = ?', [id]);
+    res.json(row);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '완료 원복 실패' });
   }
 });

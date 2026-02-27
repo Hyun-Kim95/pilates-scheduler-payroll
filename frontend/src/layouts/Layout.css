@@ -1,6 +1,13 @@
+/* 전체 앱 컨테이너: 헤더 + 본문(사이드바+콘텐츠) */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 .app-layout {
   display: flex;
-  min-height: 100vh;
+  flex: 1;
 }
 
 .sidebar {
@@ -30,7 +37,12 @@
   color: var(--sidebar-foreground);
   opacity: 0.85;
   text-decoration: none;
+  border-bottom: 1px solid var(--sidebar-border);
   transition: background 0.2s, color 0.2s, opacity 0.2s;
+}
+
+.sidebar-nav .nav-item:first-child {
+  border-top: 1px solid var(--sidebar-border);
 }
 
 .sidebar-nav .nav-item:hover {
@@ -67,6 +79,51 @@
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--foreground);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-user-menu {
+  position: relative;
+}
+
+.header-user-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.header-user-menu-list {
+  position: absolute;
+  right: 0;
+  top: 110%;
+  min-width: 140px;
+  padding: 0.4rem;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  z-index: 10;
+}
+
+.header-user-menu-list button {
+  width: 100%;
+  justify-content: flex-start;
+  margin: 0 0 0.25rem;
+}
+.header-user-menu-list button:last-child {
+  margin-bottom: 0;
 }
 
 .theme-toggle {

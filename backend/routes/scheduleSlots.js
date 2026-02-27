@@ -8,13 +8,20 @@ export const router = Router();
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { from, to, instructor_id } = req.query;
-    let sql = `SELECT s.id, s.instructor_id, DATE_FORMAT(s.slot_date, '%Y-%m-%d') AS slot_date, s.start_time, s.end_time, s.max_capacity, s.created_at, i.name AS instructor_name, i.color 
+    let sql = `SELECT s.id,
+                      s.instructor_id,
+                      DATE_FORMAT(s.slot_date, '%Y-%m-%d') AS slot_date,
+                      s.start_time,
+                      s.end_time,
+                      s.max_capacity,
+                      s.created_at,
+                      i.name AS instructor_name,
+                      i.color,
+                      COALESCE((SELECT COUNT(*) FROM reservations r WHERE r.schedule_slot_id = s.id AND r.status = 'confirmed'), 0) AS confirmed_count
                FROM schedule_slots s JOIN instructors i ON s.instructor_id = i.id WHERE 1=1`;
     const params = [];
-    if (req.user.role === 'instructor') {
-      sql += ' AND s.instructor_id = ?';
-      params.push(req.user.instructorId);
-    } else if (instructor_id) {
+    // instructor_id 쿼리 파라미터가 있는 경우에만 강사 필터 적용 (역할과 무관하게)
+    if (instructor_id) {
       sql += ' AND s.instructor_id = ?';
       params.push(instructor_id);
     }
@@ -54,6 +61,39 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
+const MIN_SLOT_HOURS = 2;
+
+function timeToMinutes(t) {
+  if (!t) return 0;
+  const s = String(t).trim();
+  if (s === '24:00' || s.startsWith('24:')) return 24 * 60;
+  const parts = s.split(':');
+  const h = Number(parts[0]) || 0;
+  const m = Number(parts[1]) || 0;
+  return h * 60 + m;
+}
+
+function isSlotDurationAtLeastTwoHours(startTime, endTime) {
+  const start = timeToMinutes(startTime);
+  let end = timeToMinutes(endTime);
+  if (end <= start) end += 24 * 60;
+  return (end - start) >= MIN_SLOT_HOURS * 60;
+}
+
+/** 같은 강사·같은 날짜·겹치는 시간 슬롯 존재 여부 */
+async function hasOverlappingSlot(instructorId, slotDate, startTime, endTime, excludeSlotId = null) {
+  let sql = `SELECT id FROM schedule_slots 
+    WHERE instructor_id = ? AND slot_date = ? 
+    AND start_time < ? AND end_time > ?`;
+  const params = [instructorId, slotDate, endTime, startTime];
+  if (excludeSlotId) {
+    sql += ' AND id != ?';
+    params.push(excludeSlotId);
+  }
+  const rows = await query(sql, params);
+  return Array.isArray(rows) && rows.length > 0;
+}
+
 /** 생성: 관리자 또는 본인(강사) */
 router.post('/', requireAuth, async (req, res) => {
   try {
@@ -64,6 +104,12 @@ router.post('/', requireAuth, async (req, res) => {
     }
     if (req.user.role === 'instructor' && Number(targetInstructorId) !== req.user.instructorId) {
       return res.status(403).json({ error: '본인 스케줄만 등록할 수 있습니다.' });
+    }
+    if (!isSlotDurationAtLeastTwoHours(start_time, end_time)) {
+      return res.status(400).json({ error: '슬롯은 최소 2시간 이상이어야 합니다.' });
+    }
+    if (await hasOverlappingSlot(targetInstructorId, slot_date, start_time, end_time)) {
+      return res.status(400).json({ error: '같은 강사의 같은 시간대에 이미 등록된 슬롯이 있습니다.' });
     }
     const capacity = Math.min(Number(max_capacity) || 6, 6);
     const r = await query(
@@ -87,7 +133,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
   try {
     const id = req.params.id;
     const [existing] = await query(
-      'SELECT id, instructor_id FROM schedule_slots WHERE id = ?',
+      'SELECT id, instructor_id, slot_date, start_time, end_time FROM schedule_slots WHERE id = ?',
       [id]
     );
     if (!existing) return res.status(404).json({ error: '슬롯을 찾을 수 없습니다.' });
@@ -95,6 +141,20 @@ router.patch('/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ error: '권한이 없습니다.' });
     }
     const { slot_date, start_time, end_time, max_capacity } = req.body || {};
+    const finalDate = slot_date !== undefined ? slot_date : existing.slot_date;
+    const finalStart = start_time !== undefined ? start_time : null;
+    const finalEnd = end_time !== undefined ? end_time : null;
+    const checkStart = finalStart ?? existing.start_time;
+    const checkEnd = finalEnd ?? existing.end_time;
+    if (checkStart && checkEnd && !isSlotDurationAtLeastTwoHours(checkStart, checkEnd)) {
+      return res.status(400).json({ error: '슬롯은 최소 2시간 이상이어야 합니다.' });
+    }
+    if (finalStart != null || finalEnd != null || finalDate) {
+      const checkDate = finalDate;
+      if (checkDate && checkStart && checkEnd && await hasOverlappingSlot(existing.instructor_id, checkDate, checkStart, checkEnd, id)) {
+        return res.status(400).json({ error: '같은 강사의 같은 시간대에 이미 등록된 슬롯이 있습니다.' });
+      }
+    }
     const updates = [];
     const params = [];
     if (slot_date !== undefined) { updates.push('slot_date = ?'); params.push(slot_date); }

@@ -75,6 +75,8 @@ CREATE TABLE reservations (
   id INT AUTO_INCREMENT PRIMARY KEY,
   schedule_slot_id INT NOT NULL,
   member_id INT NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
   status ENUM('confirmed', 'cancelled') NOT NULL DEFAULT 'confirmed',
   completed TINYINT(1) NOT NULL DEFAULT 0,
   reminder_sent_at DATETIME NULL,

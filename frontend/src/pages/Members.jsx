@@ -70,7 +70,7 @@ export default function Members() {
       <div className="page-header">
         <h2>회원 관리</h2>
         <div className="page-header-actions">
-          <button type="button" onClick={openCreateModal}>
+          <button type="button" className="btn btn-primary" onClick={openCreateModal}>
             회원 등록
           </button>
         </div>
@@ -88,8 +88,8 @@ export default function Members() {
                 <td>{m.instructor_name || '-'}</td>
                 <td>{m.memo || '-'}</td>
                 <td>
-                <button type="button" onClick={() => openEditModal(m)}>수정</button>
-                  <button type="button" onClick={() => handleDelete(m.id)}>삭제</button>
+                <button type="button" className="btn btn-secondary" onClick={() => openEditModal(m)}>수정</button>
+                  <button type="button" className="btn btn-danger" onClick={() => handleDelete(m.id)}>삭제</button>
                 </td>
               </tr>
             ))}
@@ -99,7 +99,6 @@ export default function Members() {
       {showModal && (
         <div
           className="schedule-modal-backdrop"
-          onClick={() => setShowModal(false)}
         >
           <div
             className="schedule-modal"
@@ -133,8 +132,8 @@ export default function Members() {
                 onChange={(e) => setForm({ ...form, memo: e.target.value })}
               />
               <div className="slot-form-actions">
-                <button type="submit">{editing ? '수정' : '등록'}</button>
-                <button type="button" onClick={() => { setShowModal(false); resetForm(); }}>취소</button>
+                <button type="submit" className="btn btn-primary">{editing ? '수정' : '등록'}</button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowModal(false); resetForm(); }}>취소</button>
               </div>
             </form>
           </div>

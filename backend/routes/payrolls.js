@@ -35,12 +35,12 @@ export const router = Router();
 router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { year_month, instructor_id } = req.query;
-    let sql = `SELECT p.id, p.instructor_id, p.year_month, p.class_count, p.rate_amount, p.base_salary, p.total_amount, p.created_at, i.name AS instructor_name 
+    let sql = `SELECT p.id, p.instructor_id, p.\`year_month\`, p.class_count, p.rate_amount, p.base_salary, p.total_amount, p.created_at, i.name AS instructor_name 
                FROM payrolls p JOIN instructors i ON p.instructor_id = i.id WHERE 1=1`;
     const params = [];
-    if (year_month) { sql += ' AND p.year_month = ?'; params.push(year_month); }
+    if (year_month) { sql += ' AND p.`year_month` = ?'; params.push(year_month); }
     if (instructor_id) { sql += ' AND p.instructor_id = ?'; params.push(instructor_id); }
-    sql += ' ORDER BY p.year_month DESC, i.name';
+    sql += ' ORDER BY p.`year_month` DESC, i.name';
     const rows = await query(sql, params);
     res.json(rows);
   } catch (err) {
@@ -59,26 +59,34 @@ router.post('/compute', requireAuth, requireAdmin, async (req, res) => {
     }
     const instructors = await query('SELECT id FROM instructors WHERE active = 1');
     const results = [];
-    for (const { id: instructor_id } of instructors) {
+    for (const inst of instructors) {
+      const instructor_id = inst?.id ?? inst?.ID;
+      if (instructor_id == null) continue;
       const computed = await computePayroll(instructor_id, ym);
       if (!computed) continue;
+      const class_count = Number(computed.class_count) || 0;
+      const rate_amount = Number(computed.rate_amount) || 0;
+      const base_salary = Number(computed.base_salary) || 0;
+      const total_amount = Number(computed.total_amount) || 0;
       await query(
-        `INSERT INTO payrolls (instructor_id, year_month, class_count, rate_amount, base_salary, total_amount)
+        `INSERT INTO payrolls (instructor_id, \`year_month\`, class_count, rate_amount, base_salary, total_amount)
          VALUES (?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE class_count = VALUES(class_count), rate_amount = VALUES(rate_amount),
          base_salary = VALUES(base_salary), total_amount = VALUES(total_amount), updated_at = CURRENT_TIMESTAMP`,
-        [instructor_id, ym, computed.class_count, computed.rate_amount, computed.base_salary, computed.total_amount]
+        [instructor_id, ym, class_count, rate_amount, base_salary, total_amount]
       );
       const [row] = await query(
-        'SELECT id, instructor_id, year_month, class_count, rate_amount, base_salary, total_amount FROM payrolls WHERE instructor_id = ? AND year_month = ?',
+        `SELECT p.id, p.instructor_id, p.\`year_month\`, p.class_count, p.rate_amount, p.base_salary, p.total_amount, i.name AS instructor_name
+         FROM payrolls p JOIN instructors i ON p.instructor_id = i.id WHERE p.instructor_id = ? AND p.\`year_month\` = ?`,
         [instructor_id, ym]
       );
-      results.push(row);
+      if (row) results.push(row);
     }
     res.json({ year_month: ym, items: results });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '정산 계산 실패' });
+    console.error('Payroll compute error:', err);
+    const message = err.message || '정산 계산 실패';
+    res.status(500).json({ error: message });
   }
 });
 
@@ -90,8 +98,8 @@ router.get('/:instructorId/:yearMonth', requireAuth, async (req, res) => {
       return res.status(403).json({ error: '권한이 없습니다.' });
     }
     const [row] = await query(
-      `SELECT p.id, p.instructor_id, p.year_month, p.class_count, p.rate_amount, p.base_salary, p.total_amount, p.created_at, i.name AS instructor_name 
-       FROM payrolls p JOIN instructors i ON p.instructor_id = i.id WHERE p.instructor_id = ? AND p.year_month = ?`,
+      `SELECT p.id, p.instructor_id, p.\`year_month\`, p.class_count, p.rate_amount, p.base_salary, p.total_amount, p.created_at, i.name AS instructor_name 
+       FROM payrolls p JOIN instructors i ON p.instructor_id = i.id WHERE p.instructor_id = ? AND p.\`year_month\` = ?`,
       [instructorId, yearMonth]
     );
     if (!row) return res.status(404).json({ error: '해당 월 정산 내역이 없습니다.' });

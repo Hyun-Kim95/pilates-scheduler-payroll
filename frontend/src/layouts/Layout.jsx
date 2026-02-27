@@ -11,14 +11,16 @@ export default function Layout() {
   }, [navigate]);
 
   return (
-    <div className="app-layout">
-      <Sidebar />
-      <main className="main-content">
-        <Header />
-        <div className="page-content">
-          <Outlet />
-        </div>
-      </main>
+    <div className="app-shell">
+      <Header />
+      <div className="app-layout">
+        <Sidebar />
+        <main className="main-content">
+          <div className="page-content">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

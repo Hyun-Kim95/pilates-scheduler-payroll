@@ -175,6 +175,7 @@
 /* 기존 테이블/폼 스타일을 테마 변수로 */
 .data-table {
   @apply w-full border-collapse rounded-lg shadow-sm;
+  table-layout: fixed;
   background: var(--card);
   border: 1px solid var(--border);
 }
@@ -182,27 +183,133 @@
 .data-table td {
   @apply px-3 py-2.5 text-left;
   border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .data-table th {
   background: var(--muted);
   font-weight: 600;
 }
+.data-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* 통일 버튼 스타일 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+  box-shadow: var(--shadow-xs);
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+.btn-primary:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--primary) 90%, black 10%);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--shadow-2xs);
+}
+.btn-secondary {
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--muted);
+}
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* 성공/완료용 버튼 (예: 수업 완료) */
+.btn-success {
+  background: #16a34a;
+  color: #ecfdf3;
+  border-color: #16a34a;
+}
+.btn-success:hover:not(:disabled) {
+  background: #15803d;
+}
+.btn-success:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--shadow-2xs);
+}
+
+/* 경고/되돌리기용 버튼 (예: 완료 원복) */
+.btn-warning {
+  background: #f59e0b;
+  color: #111827;
+  border-color: #f59e0b;
+}
+.btn-warning:hover:not(:disabled) {
+  background: #d97706;
+}
+.btn-warning:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--shadow-2xs);
+}
+.btn-danger {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+  border-color: var(--destructive);
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--destructive) 90%, black 10%);
+}
+.btn-danger:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 .page-header {
-  @apply flex items-center justify-between mb-4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
 }
-.page-header-actions {
-  @apply flex gap-2;
-}
+.page-header h1,
 .page-header h2 {
-  font-size: 1.4rem;
+  margin: 0;
+  font-size: 1.25rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.02em;
   color: var(--foreground);
 }
-.page-header-actions button {
+.page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.page-header-actions > .btn { margin: 0; }
+/* 헤더 액션 버튼 = primary 스타일 */
+.page-header-actions > button {
   padding: 0.4rem 0.9rem;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  border: 1px solid var(--primary);
   background: var(--primary);
   color: var(--primary-foreground);
   font-size: 0.9rem;
@@ -211,35 +318,45 @@
   transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
   box-shadow: var(--shadow-xs);
 }
-.page-header-actions button:hover {
+.page-header-actions > button:hover {
   background: color-mix(in oklch, var(--primary) 90%, black 10%);
 }
-.page-header-actions button:active {
+.page-header-actions > button:active {
   transform: translateY(1px);
   box-shadow: var(--shadow-2xs);
 }
-.data-table button {
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.data-table .btn {
   padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--foreground);
   font-size: 0.8rem;
-  cursor: pointer;
   margin-right: 0.25rem;
 }
-.data-table button:last-child {
+.data-table .btn:last-child {
   margin-right: 0;
 }
 .payroll-table {
   @apply w-full border-collapse rounded-lg shadow-sm;
+  table-layout: fixed;
   background: var(--card);
   border: 1px solid var(--border);
 }
 .payroll-table th,
 .payroll-table td {
-  @apply px-3 py-2.5;
+  @apply px-3 py-2.5 text-left;
   border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.payroll-table th {
+  background: var(--muted);
+  font-weight: 600;
 }
 .payroll-toolbar {
   @apply flex gap-4 items-center mb-4;
@@ -249,4 +366,35 @@
 }
 .payroll-forbidden {
   @apply text-muted-foreground;
+}
+
+/* Dashboard */
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--shadow-xs);
+}
+
+.dashboard-card-label {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  margin-bottom: 0.35rem;
+}
+
+.dashboard-card-value {
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.dashboard-section {
+  margin-top: 1rem;
 }

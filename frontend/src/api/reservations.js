@@ -24,3 +24,7 @@ export function moveReservation(id, schedule_slot_id, options = {}) {
 export function completeReservation(id) {
   return api.patch(`/reservations/${id}/complete`).then((res) => res.data);
 }
+
+export function uncompleteReservation(id) {
+  return api.patch(`/reservations/${id}/uncomplete`).then((res) => res.data);
+}

@@ -21,7 +21,10 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(user));
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(err.response?.data?.error || '로그인에 실패했습니다.');
+      const msg = err.response?.data?.error || '로그인에 실패했습니다.';
+      setError(msg);
+      // 계정이 없거나 비밀번호가 틀린 경우 등, 사용자에게 바로 알려주기
+      alert(msg);
     } finally {
       setLoading(false);
     }
@@ -53,7 +56,7 @@ export default function Login() {
             autoComplete="current-password"
           />
           {error && <p className="login-error">{error}</p>}
-          <button type="submit" disabled={loading}>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>

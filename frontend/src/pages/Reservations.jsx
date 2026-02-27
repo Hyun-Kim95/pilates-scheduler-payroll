@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { listReservations, cancelReservation } from '../api/reservations';
+import { listReservations, cancelReservation, completeReservation, uncompleteReservation } from '../api/reservations';
+import { timeRangeDisplay } from './Schedule';
 
 export default function Reservations() {
   const [list, setList] = useState([]);
@@ -22,6 +23,14 @@ export default function Reservations() {
     if (window.confirm('예약을 취소하시겠습니까?')) cancelReservation(id).then(load);
   };
 
+  const handleComplete = (id) => {
+    completeReservation(id).then(load).catch((err) => alert(err.response?.data?.error || '완료 처리에 실패했습니다.'));
+  };
+
+  const handleUncomplete = (id) => {
+    uncompleteReservation(id).then(load).catch((err) => alert(err.response?.data?.error || '완료 원복에 실패했습니다.'));
+  };
+
   const confirmed = list.filter((r) => r.status === 'confirmed');
 
   return (
@@ -34,7 +43,7 @@ export default function Reservations() {
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           </label>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          <button type="button" onClick={load}>조회</button>
+          <button type="button" className="btn btn-primary" onClick={load}>조회</button>
         </div>
       </div>
       {loading ? <p>로딩 중...</p> : (
@@ -52,14 +61,39 @@ export default function Reservations() {
           <tbody>
             {confirmed.map((r) => (
               <tr key={r.id}>
-                <td>{r.slot_date}</td>
-                <td>{r.start_time}–{r.end_time}</td>
+                <td>{r.slot_date ? String(r.slot_date).slice(0, 10) : ''}</td>
+                <td>{timeRangeDisplay(r.start_time, r.end_time)}</td>
                 <td>{r.instructor_name}</td>
                 <td>{r.member_name}</td>
-                <td>{r.status === 'confirmed' ? '확정' : '취소'}</td>
+                <td>{r.status === 'confirmed' ? (r.completed ? '완료' : '확정') : '취소'}</td>
                 <td>
                   {r.status === 'confirmed' && (
-                    <button type="button" onClick={() => handleCancel(r.id)}>취소</button>
+                    <>
+                      {!r.completed ? (
+                        <button
+                          type="button"
+                          className="btn btn-success"
+                          onClick={() => handleComplete(r.id)}
+                        >
+                          수업 완료
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-warning"
+                          onClick={() => handleUncomplete(r.id)}
+                        >
+                          완료 원복
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={() => handleCancel(r.id)}
+                      >
+                        취소
+                      </button>
+                    </>
                   )}
                 </td>
               </tr>

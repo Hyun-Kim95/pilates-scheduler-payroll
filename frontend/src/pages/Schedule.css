@@ -3,32 +3,13 @@
   overflow-x: auto;
 }
 
-.schedule-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.schedule-toolbar h2 {
-  margin: 0;
-}
-
 .schedule-controls {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.schedule-controls button {
-  padding: 0.35rem 0.75rem;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--foreground);
-  border-radius: var(--radius-sm);
-}
+.schedule-controls .btn { margin: 0; }
 
 .schedule-label {
   margin-left: 0.5rem;
@@ -71,8 +52,13 @@
   display: flex;
   flex-direction: column;
 }
+.time-column-header {
+  height: 28px;
+  flex-shrink: 0;
+}
 .time-cell {
   height: 32px;
+  flex-shrink: 0;
   font-size: 0.75rem;
   color: var(--muted-foreground);
 }
@@ -89,9 +75,13 @@
   overflow: hidden;
 }
 .day-header {
+  min-height: 28px;
+  box-sizing: border-box;
   padding: 0.25rem 0.5rem;
   font-size: 0.8rem;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
 }
 .day-body {
   position: relative;
@@ -128,19 +118,69 @@
 .slot-block-header {
   margin-bottom: 0.2rem;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
-.slot-block-title small {
-  display: block;
+.slot-block-title {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-block-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.slot-block-count {
+  font-size: 0.8rem;
   color: var(--muted-foreground);
+}
+
+.slot-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.slot-edit,
+.slot-delete,
+.slot-add-member-header {
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.1rem 0.25rem;
+  line-height: 1;
+}
+
+.slot-edit:hover,
+.slot-delete:hover {
+  color: var(--foreground);
+}
+
+.slot-add-member-header:hover {
+  color: var(--primary);
+}
+
+.slot-delete:hover {
+  color: var(--destructive);
 }
 
 .slot-block-reservations {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* 슬롯 높이가 작을 때도 회원 목록이 완전히 잘리지 않도록 스크롤 허용 */
+  max-height: 4.5rem;
+  overflow-y: auto;
 }
 
 .reservation-card {
@@ -178,6 +218,24 @@
   padding: 0;
 }
 
+.slot-add-member {
+  margin-top: 0.2rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.slot-add-member:hover {
+  background: var(--accent);
+  border-color: var(--ring);
+}
+
 .slot-block-drag-over {
   background: var(--accent);
   outline: 2px dashed var(--ring);
@@ -199,34 +257,149 @@
   font-size: 0.875rem;
 }
 
-.month-slot-count {
-  display: block;
+/* ========== 월간 캘린더 ========== */
+.schedule-month {
+  margin-top: 0.5rem;
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.month-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.875rem;
+}
+
+.month-table thead {
+  background: var(--muted);
+}
+
+.month-table th {
+  padding: 0.6rem 0.4rem;
+  font-weight: 600;
+  font-size: 0.75rem;
   color: var(--muted-foreground);
+  text-align: center;
+  border-bottom: 2px solid var(--border);
+}
+
+.month-table th:first-child {
+  color: var(--destructive);
+}
+
+.month-table th:last-child {
+  color: var(--primary);
+}
+
+.month-table tbody tr {
+  border-bottom: 1px solid var(--border);
+}
+
+.month-table tbody tr:last-child {
+  border-bottom: none;
 }
 
 .month-cell {
-  min-width: 80px;
-  height: 80px;
+  min-width: 0;
+  width: 14.28%;
+  height: 100px;
+  padding: 0.35rem;
+  vertical-align: top;
+  border-right: 1px solid var(--border);
+  background: var(--background);
+}
+
+.month-cell:last-child {
+  border-right: none;
 }
 
 .month-cell.empty {
   background: var(--muted);
+  opacity: 0.6;
+}
+
+.month-cell-today .month-day {
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 
 .month-day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
   font-weight: 600;
-  margin-bottom: 0.25rem;
+  font-size: 0.8rem;
+  margin-bottom: 0.35rem;
+  border-radius: 50%;
+  color: var(--foreground);
+}
+
+.month-cell.empty .month-day {
+  color: var(--muted-foreground);
+}
+
+.month-slot-count {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--muted-foreground);
+  margin-top: 0.1rem;
 }
 
 .month-slot {
   font-size: 0.7rem;
-  padding: 0.15rem 0.3rem;
-  margin-bottom: 0.15rem;
+  padding: 0.25rem 0.4rem;
+  margin-bottom: 0.2rem;
   border-left: 3px solid;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.2rem;
+  cursor: pointer;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.month-slot:hover {
+  filter: brightness(0.97);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.month-slot-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.month-slot-delete {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+  line-height: 1;
+}
+
+.month-slot-delete:hover {
+  color: var(--destructive);
+}
+
+.schedule-modal-slot-info {
+  margin: -0.25rem 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
 }
 
 .schedule-loading {
@@ -300,28 +473,25 @@
   margin-top: 0.25rem;
 }
 
-.slot-form-actions button {
-  padding: 0.4rem 0.75rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--foreground);
-  cursor: pointer;
-}
+.slot-form-actions .btn { margin: 0; }
 
 @media (max-width: 768px) {
-  .schedule-toolbar {
-    flex-direction: column;
-    align-items: flex-start;
+  .page-header .schedule-controls {
+    width: 100%;
   }
   .slot-cell {
     min-width: 70px;
   }
   .month-cell {
-    min-width: 50px;
-    height: 60px;
+    height: 80px;
+    padding: 0.25rem;
+  }
+  .month-table th {
+    padding: 0.4rem 0.2rem;
+    font-size: 0.7rem;
   }
   .month-slot {
     font-size: 0.65rem;
+    padding: 0.15rem 0.25rem;
   }
 }

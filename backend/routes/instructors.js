@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import { query } from '../config/db.js';
 import { requireAuth, requireAdmin, requireInstructor } from '../middleware/auth.js';
 
@@ -40,11 +41,16 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
-/** 생성: 관리자만 */
+/** 생성: 관리자만
+ *  선택적으로 로그인 계정(users)도 함께 생성
+ *  body: { name, color, rate_type, rate_value, base_salary, phone, login_email?, login_password? }
+ */
 router.post('/', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { name, color, rate_type, rate_value, base_salary, phone } = req.body || {};
+    const { name, color, rate_type, rate_value, base_salary, phone, login_email, login_password } = req.body || {};
     if (!name) return res.status(400).json({ error: '강사명은 필수입니다.' });
+
+    // 1) 강사 정보 생성
     const r = await query(
       `INSERT INTO instructors (name, color, rate_type, rate_value, base_salary, phone) 
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -57,7 +63,26 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
         phone || null,
       ]
     );
-    const [row] = await query('SELECT id, name, color, rate_type, rate_value, base_salary, phone, active, created_at FROM instructors WHERE id = ?', [r.insertId]);
+    const instructorId = r.insertId;
+
+    // 2) 로그인 정보가 들어온 경우, users 계정도 생성
+    if (login_email && login_password) {
+      const existing = await query('SELECT id FROM users WHERE email = ?', [login_email]);
+      if (existing.length > 0) {
+        return res.status(400).json({ error: '이미 사용 중인 이메일입니다.' });
+      }
+      const hash = await bcrypt.hash(login_password, 10);
+      await query(
+        `INSERT INTO users (email, password_hash, role, instructor_id)
+         VALUES (?, ?, 'instructor', ?)`,
+        [login_email, hash, instructorId]
+      );
+    }
+
+    const [row] = await query(
+      'SELECT id, name, color, rate_type, rate_value, base_salary, phone, active, created_at FROM instructors WHERE id = ?',
+      [instructorId]
+    );
     res.status(201).json(row);
   } catch (err) {
     console.error(err);

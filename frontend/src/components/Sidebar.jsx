@@ -10,11 +10,17 @@ const menus = [
 ];
 
 export default function Sidebar() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAdmin = user.role === 'admin';
+  const visibleMenus = menus.filter((m) => {
+    if (!isAdmin && m.path === '/instructors') return false;
+    return true;
+  });
+
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand">Pilates Scheduler</div>
       <nav className="sidebar-nav">
-        {menus.map((m) => (
+        {visibleMenus.map((m) => (
           <NavLink
             key={m.path}
             to={m.path}

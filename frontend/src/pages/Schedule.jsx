@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { listScheduleSlots, createScheduleSlot, deleteScheduleSlot } from '../api/scheduleSlots';
+import { listScheduleSlots, createScheduleSlot, updateScheduleSlot, deleteScheduleSlot } from '../api/scheduleSlots';
 import { listReservations, moveReservation, createReservation, cancelReservation } from '../api/reservations';
 import { listInstructors } from '../api/instructors';
 import { listMembers } from '../api/members';
 import './Schedule.css';
 
+/** 로컬 날짜 YYYY-MM-DD (toISOString 사용 시 UTC로 하루 밀릴 수 있음) */
 function formatDate(d) {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function addDays(d, n) {
@@ -27,6 +31,40 @@ function timeToMinutes(time) {
   const h = Number(parts[0] || 0);
   const m = Number(parts[1] || 0);
   return h * 60 + m;
+}
+
+const MIN_SLOT_HOURS = 2;
+
+/** 시 선택용 옵션 (0~23시, HH:00 형식). 시작은 0~22만 (종료 최소 2시간 확보) */
+const HOUR_OPTIONS_START = Array.from({ length: 23 }, (_, h) => ({
+  value: `${String(h).padStart(2, '0')}:00`,
+  label: `${h}시`,
+}));
+
+/** 종료 시 옵션: 시작 시각 기준 최소 2시간 이후부터 24시까지 */
+function getEndHourOptions(startTimeStr) {
+  const startH = startTimeStr ? Number(String(startTimeStr).split(':')[0]) || 0 : 0;
+  const minEndH = startH + MIN_SLOT_HOURS;
+  return Array.from({ length: 25 - minEndH }, (_, i) => {
+    const h = minEndH + i;
+    const value = h < 24 ? `${String(h).padStart(2, '0')}:00` : '24:00';
+    const label = `${h}시`;
+    return { value, label };
+  });
+}
+
+/** 시간 표시용: "09:00", "13:30" → "9~13" (시만) */
+export function timeRangeDisplay(startTime, endTime) {
+  const h = (t) => {
+    if (!t) return '';
+    const n = Number(String(t).trim().split(':')[0]);
+    return Number.isNaN(n) ? '' : n;
+  };
+  const s = h(startTime);
+  const e = h(endTime);
+  if (s === '' && e === '') return '';
+  if (s === e) return String(s);
+  return `${s}~${e}`;
 }
 
 // 같은 날짜의 슬롯들에 대해 겹침을 계산해 column 배치 정보 추가
@@ -78,14 +116,24 @@ function layoutDaySlots(daySlots) {
 
 export default function Schedule() {
   const [view, setView] = useState('week');
-  const [baseDate, setBaseDate] = useState(() => new Date());
+  const [baseDate, setBaseDate] = useState(() => {
+    const saved = localStorage.getItem('scheduleBaseDate');
+    if (saved) {
+      const d = new Date(saved);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+    return new Date();
+  });
   const [slots, setSlots] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [instructors, setInstructors] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showSlotForm, setShowSlotForm] = useState(false);
-  const [slotForm, setSlotForm] = useState({ slot_date: '', start_time: '09:00', end_time: '10:00', instructor_id: '', max_capacity: 6 });
+  const [slotForm, setSlotForm] = useState({ slot_date: '', start_time: '09:00', end_time: '11:00', instructor_id: '', max_capacity: 6 });
+  const [showSlotEditForm, setShowSlotEditForm] = useState(false);
+  const [editingSlot, setEditingSlot] = useState(null);
+  const [slotEditForm, setSlotEditForm] = useState({ slot_date: '', start_time: '09:00', end_time: '11:00', max_capacity: 6 });
   const [slotError, setSlotError] = useState('');
   const [moveError, setMoveError] = useState('');
   const [moving, setMoving] = useState(false);
@@ -96,9 +144,52 @@ export default function Schedule() {
   const [reservationMode, setReservationMode] = useState('create'); // 'create' | 'edit'
   const [reservationId, setReservationId] = useState(null);
   const [reservationTargetSlotId, setReservationTargetSlotId] = useState(null);
+  const [reservationStartTime, setReservationStartTime] = useState('');
+  const [reservationEndTime, setReservationEndTime] = useState('');
   const [reservationError, setReservationError] = useState('');
   const [reservationSaving, setReservationSaving] = useState(false);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  const getHourFromTime = (t) => {
+    if (!t) return null;
+    const h = Number(String(t).split(':')[0]);
+    return Number.isNaN(h) ? null : h;
+  };
+
+  const buildReservationStartOptions = (slot) => {
+    if (!slot) return [];
+    const startH = getHourFromTime(slot.start_time) ?? 0;
+    const endH = getHourFromTime(slot.end_time) ?? startH + 1;
+    const lastStart = Math.max(startH, endH - 1);
+    const result = [];
+    for (let h = startH; h <= lastStart; h += 1) {
+      const value = `${String(h).padStart(2, '0')}:00`;
+      result.push({ value, label: `${h}시` });
+    }
+    return result;
+  };
+
+  const buildReservationEndOptions = (slot, currentStart) => {
+    if (!slot) return [];
+    const slotStartH = getHourFromTime(slot.start_time) ?? 0;
+    const slotEndH = getHourFromTime(slot.end_time) ?? slotStartH + 1;
+    const startH = getHourFromTime(currentStart) ?? slotStartH;
+    const firstEndH = Math.max(startH + 1, slotStartH + 1);
+    const result = [];
+    for (let h = firstEndH; h <= slotEndH; h += 1) {
+      const value = `${String(h).padStart(2, '0')}:00`;
+      result.push({ value, label: `${h}시` });
+    }
+    return result;
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('scheduleBaseDate', baseDate.toISOString());
+    } catch {
+      // ignore
+    }
+  }, [baseDate]);
 
   const weekStart = getWeekStart(baseDate);
   const from = formatDate(view === 'month' ? new Date(baseDate.getFullYear(), baseDate.getMonth(), 1) : weekStart);
@@ -111,7 +202,8 @@ export default function Schedule() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      listScheduleSlots({ from, to }),
+      // 슬롯은 기간 필터 없이 전부 가져오고, 화면에서 날짜로만 필터링한다.
+      listScheduleSlots(),
       listReservations({ from, to }),
       listInstructors(),
       listMembers(),
@@ -126,11 +218,22 @@ export default function Schedule() {
   }, [from, to]);
 
   const reloadSlots = () => {
-    listScheduleSlots({ from, to }).then(setSlots);
+    listScheduleSlots().then(setSlots);
   };
 
   const reloadReservations = () => {
     listReservations({ from, to }).then(setReservations);
+  };
+
+  const openSlotCreateModal = () => {
+    if (user.role === 'admin' && (!instructors || instructors.length === 0)) {
+      // 강사 목록이 비어 있으면 한 번 더 로딩 후 모달 오픈
+      listInstructors()
+        .then((list) => setInstructors(Array.isArray(list) ? list : []))
+        .finally(() => setShowSlotForm(true));
+    } else {
+      setShowSlotForm(true);
+    }
   };
 
   const openReservationModal = (slot) => {
@@ -140,6 +243,12 @@ export default function Schedule() {
     setReservationMemberId('');
     setReservationId(null);
     setReservationTargetSlotId(null);
+    const startOpts = buildReservationStartOptions(slot);
+    const initialStart = startOpts[0]?.value || '';
+    const endOpts = buildReservationEndOptions(slot, initialStart);
+    const initialEnd = endOpts[0]?.value || '';
+    setReservationStartTime(initialStart);
+    setReservationEndTime(initialEnd);
     setReservationError('');
     setReservationSaving(false);
     setShowReservationForm(true);
@@ -152,6 +261,10 @@ export default function Schedule() {
     setReservationId(reservation.id);
     setReservationTargetSlotId(slot.id);
     setReservationMemberId(reservation.member_id ?? '');
+    const editStart = reservation.start_time || slot.start_time;
+    const editEnd = reservation.end_time || slot.end_time;
+    setReservationStartTime(editStart);
+    setReservationEndTime(editEnd);
     setReservationError('');
     setReservationSaving(false);
     setShowReservationForm(true);
@@ -167,15 +280,23 @@ export default function Schedule() {
       setReservationError('회원을 선택하세요.');
       return;
     }
+    if (!reservationStartTime || !reservationEndTime) {
+      setReservationError('수업 시간을 선택하세요.');
+      return;
+    }
     setReservationError('');
     setReservationSaving(true);
     try {
       if (reservationMode === 'create') {
-        await createReservation({
+        const res = await createReservation({
           schedule_slot_id: reservationSlot.id,
           member_id: Number(reservationMemberId),
+          start_time: reservationStartTime,
+          end_time: reservationEndTime,
         });
         await reloadReservations();
+        await reloadSlots();
+        if (res && res.warning) alert(res.warning);
       } else if (reservationMode === 'edit' && reservationId != null) {
         const targetSlotId = reservationTargetSlotId || reservationSlot.id;
         if (targetSlotId !== reservationSlot.id) {
@@ -183,6 +304,7 @@ export default function Schedule() {
             send_notification: sendNotificationOnMove,
           });
           await reloadReservations();
+          await reloadSlots();
         }
       }
       setShowReservationForm(false);
@@ -202,17 +324,60 @@ export default function Schedule() {
     try {
       await cancelReservation(id);
       await reloadReservations();
+      await reloadSlots();
     } catch {
       setMoveError('예약 취소에 실패했습니다.');
     }
   };
 
-  // 슬롯 삭제 (예약이 없는 경우만)
-  const handleDeleteSlot = async (e, slotId, hasReservations) => {
+  const openSlotEditForm = (slot) => {
+    const slotDate = slot.slot_date instanceof Date
+      ? formatDate(slot.slot_date)
+      : String(slot.slot_date || '').slice(0, 10);
+    const startStr = slot.start_time?.slice(0, 5) || '09:00';
+    const endStr = slot.end_time?.slice(0, 5) || '11:00';
+    const startH = Number(String(startStr).split(':')[0]) || 0;
+    const endH = endStr === '24:00' ? 24 : Number(String(endStr).split(':')[0]) || 11;
+    const minEndH = startH + MIN_SLOT_HOURS;
+    const endTime = endH >= minEndH ? (endH === 24 ? '24:00' : `${String(endH).padStart(2, '0')}:00`) : `${String(minEndH).padStart(2, '0')}:00`;
+    setEditingSlot(slot);
+    setSlotEditForm({
+      slot_date: slotDate,
+      start_time: startStr,
+      end_time: endTime,
+      max_capacity: slot.max_capacity ?? 6,
+    });
+    setSlotError('');
+    setShowSlotEditForm(true);
+  };
+
+  const handleUpdateSlot = async (e) => {
+    e.preventDefault();
+    if (!editingSlot) return;
+    setSlotError('');
+    try {
+      await updateScheduleSlot(editingSlot.id, {
+        slot_date: slotEditForm.slot_date,
+        start_time: slotEditForm.start_time,
+        end_time: slotEditForm.end_time,
+        max_capacity: Number(slotEditForm.max_capacity) || 6,
+      });
+      await reloadSlots();
+      await reloadReservations();
+      setShowSlotEditForm(false);
+      setEditingSlot(null);
+    } catch (err) {
+      setSlotError(err.response?.data?.error || '슬롯 수정에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteSlot = async (e, slotId, reservationCount) => {
     e.stopPropagation();
     e.preventDefault();
-    if (hasReservations) return;
-    if (!window.confirm('이 슬롯을 삭제하시겠습니까? (예약이 없는 시간만 삭제 가능합니다.)')) return;
+    const message = reservationCount > 0
+      ? `이 슬롯을 삭제하면 연결된 예약 ${reservationCount}건이 모두 삭제됩니다. 계속하시겠습니까?`
+      : '이 슬롯을 삭제하시겠습니까?';
+    if (!window.confirm(message)) return;
     try {
       await deleteScheduleSlot(slotId);
       await reloadSlots();
@@ -234,7 +399,7 @@ export default function Schedule() {
     if (user.role === 'admin') payload.instructor_id = slotForm.instructor_id;
     try {
       const created = await createScheduleSlot(payload);
-      // 새 슬롯이 있는 주로 이동 (가능하면)
+      // 새 슬롯이 있는 날짜로 기준 날짜 이동
       if (created?.slot_date) {
         let d = null;
         if (created.slot_date instanceof Date) {
@@ -249,9 +414,9 @@ export default function Schedule() {
           setBaseDate(d);
         }
       }
-      // 항상 최신 슬롯 목록 다시 불러오기
-      reloadSlots();
-      setSlotForm({ slot_date: '', start_time: '09:00', end_time: '10:00', instructor_id: '', max_capacity: 6 });
+      // 새 슬롯을 즉시 반영하기 위해 슬롯 목록을 다시 불러온다.
+      await reloadSlots();
+      setSlotForm({ slot_date: '', start_time: '09:00', end_time: '11:00', instructor_id: '', max_capacity: 6 });
       setShowSlotForm(false);
     } catch (err) {
       setSlotError(err.response?.data?.error || '슬롯 등록에 실패했습니다.');
@@ -277,18 +442,18 @@ export default function Schedule() {
 
   const monthLabel = view === 'month'
     ? `${baseDate.getFullYear()}년 ${baseDate.getMonth() + 1}월`
-    : `주 ${formatDate(weekStart)} ~ ${formatDate(addDays(weekStart, 6))}`;
+    : `${formatDate(weekStart)} ~ ${formatDate(addDays(weekStart, 6))}`;
 
   if (loading) return <div className="schedule-loading">로딩 중...</div>;
 
   return (
     <div className="schedule-page">
-      <div className="schedule-toolbar">
+      <div className="page-header">
         <h2>스케줄</h2>
         <div className="schedule-controls">
-          <button type="button" onClick={prev}>이전</button>
-          <button type="button" onClick={today}>오늘</button>
-          <button type="button" onClick={next}>다음</button>
+          <button type="button" className="btn btn-secondary" onClick={prev}>이전</button>
+          <button type="button" className="btn btn-secondary" onClick={today}>오늘</button>
+          <button type="button" className="btn btn-secondary" onClick={next}>다음</button>
           <span className="schedule-label">{monthLabel}</span>
           <label>
             <input type="radio" checked={view === 'week'} onChange={() => setView('week')} />
@@ -308,8 +473,8 @@ export default function Schedule() {
           </label>
           <button
             type="button"
-            className="schedule-slot-button"
-            onClick={() => setShowSlotForm(true)}
+            className="btn btn-primary schedule-slot-button"
+            onClick={openSlotCreateModal}
           >
             슬롯 등록
           </button>
@@ -326,7 +491,6 @@ export default function Schedule() {
       {showSlotForm && (
         <div
           className="schedule-modal-backdrop"
-          onClick={() => setShowSlotForm(false)}
         >
           <div
             className="schedule-modal"
@@ -337,19 +501,51 @@ export default function Schedule() {
               <input
                 type="date"
                 value={slotForm.slot_date}
-                onChange={(e) => setSlotForm({ ...slotForm, slot_date: e.target.value })}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSlotForm({ ...slotForm, slot_date: v });
+                  if (v) {
+                    const parts = v.split('-');
+                    if (parts.length === 3) {
+                      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+                      if (!Number.isNaN(d.getTime())) {
+                        setBaseDate(d);
+                      }
+                    }
+                  }
+                }}
                 required
               />
-              <input
-                type="time"
-                value={slotForm.start_time}
-                onChange={(e) => setSlotForm({ ...slotForm, start_time: e.target.value })}
-              />
-              <input
-                type="time"
-                value={slotForm.end_time}
+              <select
+                value={slotForm.start_time ? `${(String(slotForm.start_time).split(':')[0] || '09').padStart(2, '0')}:00` : '09:00'}
+                onChange={(e) => {
+                  const start = e.target.value;
+                  const startH = Number(start.split(':')[0]);
+                  const minEnd = `${String(startH + MIN_SLOT_HOURS).padStart(2, '0')}:00`;
+                  const endH = slotForm.end_time ? Number(String(slotForm.end_time).split(':')[0]) : 10;
+                  const newEnd = endH >= startH + MIN_SLOT_HOURS ? slotForm.end_time : minEnd;
+                  setSlotForm({ ...slotForm, start_time: start, end_time: newEnd });
+                }}
+              >
+                {HOUR_OPTIONS_START.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <select
+                value={(() => {
+                  const startH = slotForm.start_time ? Number(String(slotForm.start_time).split(':')[0]) : 9;
+                  const endStr = slotForm.end_time || '11:00';
+                  const endH = endStr === '24:00' ? 24 : Number(String(endStr).split(':')[0]) || 11;
+                  const minH = startH + MIN_SLOT_HOURS;
+                  if (endH >= minH) return endH === 24 ? '24:00' : `${String(endH).padStart(2, '0')}:00`;
+                  return `${String(minH).padStart(2, '0')}:00`;
+                })()}
                 onChange={(e) => setSlotForm({ ...slotForm, end_time: e.target.value })}
-              />
+              >
+                {getEndHourOptions(slotForm.start_time || '09:00').map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
               {user.role === 'admin' && (
                 <select
                   value={slotForm.instructor_id}
@@ -371,10 +567,95 @@ export default function Schedule() {
                 placeholder="최대인원"
               />
               <div className="slot-form-actions">
-                <button type="submit">등록</button>
+                <button type="submit" className="btn btn-primary">등록</button>
                 <button
                   type="button"
+                  className="btn btn-secondary"
                   onClick={() => setShowSlotForm(false)}
+                >
+                  취소
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {showSlotEditForm && editingSlot && (
+        <div
+          className="schedule-modal-backdrop"
+        >
+          <div
+            className="schedule-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>슬롯 수정</h3>
+            <p className="schedule-modal-slot-info">
+              {editingSlot.instructor_name} · 현재 {editingSlot.slot_date} {timeRangeDisplay(editingSlot.start_time, editingSlot.end_time)}
+            </p>
+            {slotError && <div className="schedule-move-error">{slotError}</div>}
+            <form onSubmit={handleUpdateSlot} className="slot-form">
+              <label>
+                날짜
+                <input
+                  type="date"
+                  value={slotEditForm.slot_date}
+                  onChange={(e) => setSlotEditForm({ ...slotEditForm, slot_date: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                시작
+                <select
+                  value={slotEditForm.start_time ? `${(String(slotEditForm.start_time).split(':')[0] || '09').padStart(2, '0')}:00` : '09:00'}
+                  onChange={(e) => {
+                    const start = e.target.value;
+                    const startH = Number(start.split(':')[0]);
+                    const minEnd = `${String(startH + MIN_SLOT_HOURS).padStart(2, '0')}:00`;
+                    const endStr = slotEditForm.end_time || '11:00';
+                    const endH = endStr === '24:00' ? 24 : Number(String(endStr).split(':')[0]) || 11;
+                    const newEnd = endH >= startH + MIN_SLOT_HOURS ? slotEditForm.end_time : minEnd;
+                    setSlotEditForm({ ...slotEditForm, start_time: start, end_time: newEnd });
+                  }}
+                >
+                  {HOUR_OPTIONS_START.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                종료
+                <select
+                  value={(() => {
+                    const startH = slotEditForm.start_time ? Number(String(slotEditForm.start_time).split(':')[0]) : 9;
+                    const endStr = slotEditForm.end_time || '11:00';
+                    const endH = endStr === '24:00' ? 24 : Number(String(endStr).split(':')[0]) || 11;
+                    const minH = startH + MIN_SLOT_HOURS;
+                    if (endH >= minH) return endH === 24 ? '24:00' : `${String(endH).padStart(2, '0')}:00`;
+                    return `${String(minH).padStart(2, '0')}:00`;
+                  })()}
+                  onChange={(e) => setSlotEditForm({ ...slotEditForm, end_time: e.target.value })}
+                >
+                  {getEndHourOptions(slotEditForm.start_time || '09:00').map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                최대 인원
+                <input
+                  type="number"
+                  min={1}
+                  max={6}
+                  value={slotEditForm.max_capacity}
+                  onChange={(e) => setSlotEditForm({ ...slotEditForm, max_capacity: e.target.value })}
+                />
+              </label>
+              <div className="slot-form-actions">
+                <button type="submit" className="btn btn-primary">저장</button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowSlotEditForm(false)}
                 >
                   취소
                 </button>
@@ -386,30 +667,70 @@ export default function Schedule() {
       {showReservationForm && reservationSlot && (
         <div
           className="schedule-modal-backdrop"
-          onClick={() => setShowReservationForm(false)}
         >
           <div
             className="schedule-modal"
             onClick={(e) => e.stopPropagation()}
           >
             <h3>{reservationMode === 'edit' ? '예약 편집' : '예약 등록'}</h3>
-            <p>
-              {reservationSlot.slot_date} {reservationSlot.start_time} ~ {reservationSlot.end_time}{' '}
-              / {reservationSlot.instructor_name}
-            </p>
+            {(() => {
+              const currentSlotId = reservationMode === 'edit'
+                ? (reservationTargetSlotId ?? reservationSlot.id)
+                : reservationSlot.id;
+              const currentSlot = slots.find((s) => s.id === currentSlotId) || reservationSlot;
+              return (
+                <p>
+                  {currentSlot.slot_date} {timeRangeDisplay(currentSlot.start_time, currentSlot.end_time)} / {currentSlot.instructor_name}
+                </p>
+              );
+            })()}
             {reservationError && <div className="schedule-move-error">{reservationError}</div>}
             <form onSubmit={handleCreateReservation} className="slot-form">
               {reservationMode === 'create' && (
-                <select
-                  value={reservationMemberId}
-                  onChange={(e) => setReservationMemberId(e.target.value)}
-                  required
-                >
-                  <option value="">회원 선택</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    value={reservationMemberId}
+                    onChange={(e) => setReservationMemberId(e.target.value)}
+                    required
+                  >
+                    <option value="">회원 선택</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                  <label>
+                    수업 시작
+                    <select
+                      value={reservationStartTime}
+                      onChange={(e) => {
+                        const newStart = e.target.value;
+                        setReservationStartTime(newStart);
+                        const currentSlot = reservationSlot;
+                        const endOpts = buildReservationEndOptions(currentSlot, newStart);
+                        if (endOpts.length > 0 && !endOpts.some((o) => o.value === reservationEndTime)) {
+                          setReservationEndTime(endOpts[0].value);
+                        }
+                      }}
+                      required
+                    >
+                      {buildReservationStartOptions(reservationSlot).map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    수업 종료
+                    <select
+                      value={reservationEndTime}
+                      onChange={(e) => setReservationEndTime(e.target.value)}
+                      required
+                    >
+                      {buildReservationEndOptions(reservationSlot, reservationStartTime).map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </>
               )}
               {reservationMode === 'edit' && (
                 <>
@@ -418,13 +739,16 @@ export default function Schedule() {
                     슬롯 변경:
                     <select
                       value={reservationTargetSlotId ?? reservationSlot.id}
-                      onChange={(e) => setReservationTargetSlotId(Number(e.target.value))}
+                      onChange={(e) => {
+                        const newId = Number(e.target.value);
+                        setReservationTargetSlotId(newId);
+                      }}
                     >
                       {slots
                         .filter((s) => s.slot_date === reservationSlot.slot_date)
                         .map((s) => (
                           <option key={s.id} value={s.id}>
-                            {s.start_time}~{s.end_time} / {s.instructor_name}
+                            {timeRangeDisplay(s.start_time, s.end_time)} / {s.instructor_name}
                           </option>
                         ))}
                     </select>
@@ -432,11 +756,12 @@ export default function Schedule() {
                 </>
               )}
               <div className="slot-form-actions">
-                <button type="submit" disabled={reservationSaving}>
+                <button type="submit" className="btn btn-primary" disabled={reservationSaving}>
                   {reservationSaving ? '등록 중...' : '등록'}
                 </button>
                 <button
                   type="button"
+                  className="btn btn-secondary"
                   onClick={() => setShowReservationForm(false)}
                 >
                   취소
@@ -450,6 +775,7 @@ export default function Schedule() {
         <div className="schedule-week">
           <div className="week-grid">
             <div className="time-column">
+              <div className="time-column-header" aria-hidden />
               {Array.from({ length: 24 }, (_, h) => (
                 <div key={h} className="time-cell">
                   {h}:00
@@ -460,7 +786,7 @@ export default function Schedule() {
               {[0, 1, 2, 3, 4, 5, 6].map((dayOff) => {
                 const d = addDays(weekStart, dayOff);
                 const dayStr = formatDate(d);
-                const daySlotsRaw = slots.filter((s) => s.slot_date === dayStr);
+                const daySlotsRaw = slots.filter((s) => String(s.slot_date).slice(0, 10) === dayStr);
                 const daySlots = layoutDaySlots(daySlotsRaw);
                 return (
                   <div key={dayStr} className="day-column">
@@ -473,6 +799,7 @@ export default function Schedule() {
                       ))}
                       {daySlots.map((s) => {
                         const slotResList = slotResMap[s.id] || [];
+                        const confirmedCount = s.confirmed_count ?? slotResList.length;
                         const totalMinutes = 24 * 60;
                         const top = (s._start / totalMinutes) * 100;
                         const height = ((s._end - s._start) / totalMinutes) * 100;
@@ -490,23 +817,50 @@ export default function Schedule() {
                               borderLeftColor: colorMap[s.instructor_id] || '#3498db',
                             }}
                             data-slot-id={s.id}
-                            title={`${s.instructor_name} ${s.start_time}-${s.end_time} (클릭 시 예약 등록)`}
-                            onClick={() => openReservationModal(s)}
+                            title={`${s.instructor_name} ${timeRangeDisplay(s.start_time, s.end_time)} (${confirmedCount}/${s.max_capacity})`}
                           >
                             <div className="slot-block-header">
                               <div className="slot-block-title">
-                                {s.instructor_name} {s.start_time}-{s.end_time}
-                                <small>{slotResList.length}/{s.max_capacity}</small>
+                                {s.instructor_name} {timeRangeDisplay(s.start_time, s.end_time)}
                               </div>
-                              {slotResList.length === 0 && (
-                                <button
-                                  type="button"
-                                  className="slot-delete"
-                                  onClick={(ev) => handleDeleteSlot(ev, s.id, slotResList.length > 0)}
-                                >
-                                  ×
-                                </button>
-                              )}
+                              <div className="slot-block-meta">
+                                <span className="slot-block-count">{confirmedCount}/{s.max_capacity}</span>
+                                <div className="slot-block-actions">
+                                  {(user.role === 'admin' || user.instructorId === s.instructor_id) && (
+                                    <>
+                                      {slotResList.length < (s.max_capacity ?? 6) && (
+                                        <button
+                                          type="button"
+                                          className="slot-add-member-header"
+                                          onClick={(ev) => {
+                                            ev.stopPropagation();
+                                            openReservationModal(s);
+                                          }}
+                                          title="회원 추가"
+                                        >
+                                          +
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        className="slot-edit"
+                                        onClick={(ev) => { ev.stopPropagation(); openSlotEditForm(s); }}
+                                        title="슬롯 수정"
+                                      >
+                                        ✎
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="slot-delete"
+                                        onClick={(ev) => handleDeleteSlot(ev, s.id, slotResList.length)}
+                                        title="슬롯 삭제"
+                                      >
+                                        ×
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                             <div className="slot-block-reservations">
                               {slotResList.map((r) => (
@@ -515,9 +869,11 @@ export default function Schedule() {
                                   className="reservation-card"
                                   draggable
                                   onDragStart={(ev) => handleDragStart(ev, r.id, s.id)}
-                                  title={`${r.member_name} (드래그하여 다른 시간대로 이동)`}
+                                  title={`${timeRangeDisplay(r.start_time, r.end_time)} ${r.member_name} (드래그하여 다른 시간대로 이동)`}
                                 >
-                                  <span className="reservation-name">{r.member_name}</span>
+                                  <span className="reservation-name">
+                                    {timeRangeDisplay(r.start_time, r.end_time)} {r.member_name}
+                                  </span>
                                   <button
                                     type="button"
                                     className="reservation-cancel"
@@ -564,22 +920,36 @@ export default function Schedule() {
                       {week.map((d, j) => {
                         if (!d) return <td key={j} className="month-cell empty" />;
                         const dayStr = formatDate(d);
-                        const daySlots = slots.filter((s) => s.slot_date === dayStr);
+                        const isToday = dayStr === formatDate(new Date());
+                        const daySlots = slots.filter((s) => String(s.slot_date).slice(0, 10) === dayStr);
                         return (
-                          <td key={j} className="month-cell">
+                          <td key={j} className={`month-cell ${isToday ? 'month-cell-today' : ''}`}>
                             <div className="month-day">{d.getDate()}</div>
                             {daySlots.map((s) => {
                               const slotResList = slotResMap[s.id] || [];
+                              const confirmedCount = s.confirmed_count ?? slotResList.length;
                               const names = slotResList.map((r) => r.member_name).join(', ') || '-';
                               return (
                                 <div
                                   key={s.id}
                                   className="month-slot"
                                   style={{ backgroundColor: (colorMap[s.instructor_id] || '#3498db') + '22', borderLeftColor: colorMap[s.instructor_id] }}
-                                  title={`${s.instructor_name} ${s.start_time}-${s.end_time} (${slotResList.length}/${s.max_capacity}) ${names}`}
+                                  title={`${s.instructor_name} ${timeRangeDisplay(s.start_time, s.end_time)} (${confirmedCount}/${s.max_capacity}) ${names}`}
                                 >
-                                  {s.instructor_name} {s.start_time?.slice(0, 5)}
-                                  <small className="month-slot-count">{slotResList.length}/{s.max_capacity}</small>
+                                  <span className="month-slot-text">
+                                    {s.instructor_name} {timeRangeDisplay(s.start_time, s.end_time)}
+                                    <small className="month-slot-count">{confirmedCount}/{s.max_capacity}</small>
+                                  </span>
+                                  {(user.role === 'admin' || user.instructorId === s.instructor_id) && (
+                                    <button
+                                      type="button"
+                                      className="month-slot-delete"
+                                      onClick={(ev) => { ev.stopPropagation(); handleDeleteSlot(ev, s.id, slotResList.length); }}
+                                      title="슬롯 삭제"
+                                    >
+                                      ×
+                                    </button>
+                                  )}
                                 </div>
                               );
                             })}

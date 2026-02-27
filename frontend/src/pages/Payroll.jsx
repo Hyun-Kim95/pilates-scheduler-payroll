@@ -7,6 +7,7 @@ export default function Payroll() {
   const [loading, setLoading] = useState(true);
   const [computing, setComputing] = useState(false);
   const [forbidden, setForbidden] = useState(false);
+  const [computeError, setComputeError] = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -21,10 +22,16 @@ export default function Payroll() {
   }, [yearMonth]);
 
   const handleCompute = () => {
+    setComputeError('');
     setComputing(true);
     computePayroll(yearMonth)
       .then((res) => setList(res.items || []))
-      .catch(console.error)
+      .catch((err) => {
+        const msg = err.response?.status === 403
+          ? '정산 계산/반영은 관리자만 가능합니다.'
+          : err.response?.data?.error || '정산 계산에 실패했습니다.';
+        setComputeError(msg);
+      })
       .finally(() => setComputing(false));
   };
 
@@ -43,11 +50,14 @@ export default function Payroll() {
               onChange={(e) => setYearMonth(e.target.value)}
             />
           </label>
-          <button type="button" onClick={handleCompute} disabled={computing}>
+          <button type="button" className="btn btn-primary" onClick={handleCompute} disabled={computing}>
             {computing ? '계산 중...' : '정산 계산/반영'}
           </button>
         </div>
       </div>
+      {computeError && (
+        <p className="payroll-forbidden" role="alert">{computeError}</p>
+      )}
       {forbidden ? (
         <p className="payroll-forbidden">정산 조회는 관리자만 가능합니다.</p>
       ) : loading ? (

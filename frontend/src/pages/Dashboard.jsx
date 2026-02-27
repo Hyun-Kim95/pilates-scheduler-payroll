@@ -1,13 +1,51 @@
 import { useEffect, useState } from 'react';
-import { getHealth } from '../api/health';
+import { listScheduleSlots } from '../api/scheduleSlots';
+import { listReservations } from '../api/reservations';
+
+function formatDateLabel(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 export default function Dashboard() {
-  const [health, setHealth] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    getHealth()
-      .then(setHealth)
-      .catch(() => setHealth({ ok: false }));
+    const today = new Date();
+    const from = formatDateLabel(today);
+    const to = formatDateLabel(today);
+    setLoading(true);
+    setError('');
+    Promise.all([
+      listScheduleSlots({ from, to }),
+      listReservations({ from, to }),
+    ])
+      .then(([slots, reservations]) => {
+        const todayReservations = reservations.filter((r) => r.status === 'confirmed');
+        const completed = todayReservations.filter((r) => r.completed).length;
+        const upcoming = todayReservations.filter((r) => !r.completed).length;
+        const byInstructor = {};
+        todayReservations.forEach((r) => {
+          const key = r.instructor_name || '미지정';
+          if (!byInstructor[key]) byInstructor[key] = 0;
+          byInstructor[key] += 1;
+        });
+        setStats({
+          slotsCount: slots.length,
+          reservationsCount: todayReservations.length,
+          completed,
+          upcoming,
+          byInstructor,
+        });
+      })
+      .catch((err) => {
+        setError(err.response?.data?.error || '데이터를 불러오지 못했습니다.');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -16,9 +54,52 @@ export default function Dashboard() {
         <h2>대시보드</h2>
         <div className="page-header-actions" />
       </div>
-      <p>스케줄·예약·정산을 한 곳에서 관리합니다.</p>
-      {health && (
-        <p className="health">API: {health.ok ? '연결됨' : '연결 실패'}</p>
+      {loading && <p>오늘 데이터를 불러오는 중입니다...</p>}
+      {error && <p className="health">{error}</p>}
+      {stats && !loading && !error && (
+        <>
+          <div className="dashboard-cards">
+            <div className="dashboard-card">
+              <div className="dashboard-card-label">오늘 슬롯 수</div>
+              <div className="dashboard-card-value">{stats.slotsCount}</div>
+            </div>
+            <div className="dashboard-card">
+              <div className="dashboard-card-label">오늘 예약 수</div>
+              <div className="dashboard-card-value">{stats.reservationsCount}</div>
+            </div>
+            <div className="dashboard-card">
+              <div className="dashboard-card-label">수업 완료</div>
+              <div className="dashboard-card-value">{stats.completed}</div>
+            </div>
+            <div className="dashboard-card">
+              <div className="dashboard-card-label">진행 예정</div>
+              <div className="dashboard-card-value">{stats.upcoming}</div>
+            </div>
+          </div>
+          <div className="dashboard-section">
+            <h3>강사별 오늘 예약</h3>
+            {Object.keys(stats.byInstructor).length === 0 ? (
+              <p>오늘 예약이 없습니다.</p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>강사</th>
+                    <th>예약 수</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(stats.byInstructor).map(([name, count]) => (
+                    <tr key={name}>
+                      <td>{name}</td>
+                      <td>{count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

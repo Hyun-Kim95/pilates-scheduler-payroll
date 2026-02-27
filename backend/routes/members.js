@@ -42,14 +42,19 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
-/** 생성: 관리자만 */
-router.post('/', requireAuth, requireAdmin, async (req, res) => {
+/** 생성: 관리자 또는 강사(본인 담당 회원만) */
+router.post('/', requireAuth, async (req, res) => {
   try {
     const { name, phone, instructor_id, memo } = req.body || {};
     if (!name) return res.status(400).json({ error: '회원명은 필수입니다.' });
+    let targetInstructorId = instructor_id || null;
+    if (req.user.role === 'instructor') {
+      // 강사는 항상 자신의 담당 회원만 등록
+      targetInstructorId = req.user.instructorId ?? null;
+    }
     const r = await query(
       'INSERT INTO members (name, phone, instructor_id, memo) VALUES (?, ?, ?, ?)',
-      [name, phone || null, instructor_id || null, memo || null]
+      [name, phone || null, targetInstructorId, memo || null]
     );
     const [row] = await query(
       `SELECT m.id, m.name, m.phone, m.instructor_id, m.memo, m.active, m.created_at, i.name AS instructor_name 
@@ -63,21 +68,29 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-/** 수정: 관리자만 */
-router.patch('/:id', requireAuth, requireAdmin, async (req, res) => {
+/** 수정: 관리자 전체, 강사는 본인 담당 회원만 (제한된 필드) */
+router.patch('/:id', requireAuth, async (req, res) => {
   try {
     const { name, phone, instructor_id, memo, active } = req.body || {};
     const id = req.params.id;
-    const [existing] = await query('SELECT id FROM members WHERE id = ?', [id]);
+    const [existing] = await query(
+      'SELECT id, instructor_id FROM members WHERE id = ?',
+      [id]
+    );
     if (!existing) return res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
+    if (req.user.role === 'instructor' && existing.instructor_id !== req.user.instructorId) {
+      return res.status(403).json({ error: '권한이 없습니다.' });
+    }
 
     const updates = [];
     const params = [];
+    const isAdmin = req.user.role === 'admin';
     if (name !== undefined) { updates.push('name = ?'); params.push(name); }
     if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
-    if (instructor_id !== undefined) { updates.push('instructor_id = ?'); params.push(instructor_id); }
     if (memo !== undefined) { updates.push('memo = ?'); params.push(memo); }
-    if (active !== undefined) { updates.push('active = ?'); params.push(active ? 1 : 0); }
+    // 담당 강사/활성 여부 변경은 관리자만 허용
+    if (isAdmin && instructor_id !== undefined) { updates.push('instructor_id = ?'); params.push(instructor_id); }
+    if (isAdmin && active !== undefined) { updates.push('active = ?'); params.push(active ? 1 : 0); }
     if (updates.length === 0) return res.status(400).json({ error: '수정할 필드가 없습니다.' });
 
     params.push(id);
