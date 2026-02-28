@@ -7,6 +7,7 @@ import Payroll from './pages/Payroll';
 import Instructors from './pages/Instructors';
 import Members from './pages/Members';
 import Reservations from './pages/Reservations';
+import Statistics from './pages/Statistics';
 import ChangePassword from './pages/ChangePassword';
 
 const router = createBrowserRouter(
@@ -21,6 +22,7 @@ const router = createBrowserRouter(
         <Route path="schedule" element={<Schedule />} />
         <Route path="reservations" element={<Reservations />} />
         <Route path="payroll" element={<Payroll />} />
+        <Route path="statistics" element={<Statistics />} />
         <Route path="change-password" element={<ChangePassword />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

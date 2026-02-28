@@ -3,9 +3,10 @@ import { listScheduleSlots, createScheduleSlot, updateScheduleSlot, deleteSchedu
 import { listReservations, moveReservation, createReservation, cancelReservation } from '../api/reservations';
 import { listInstructors } from '../api/instructors';
 import { listMembers } from '../api/members';
+import { toLocalDateString } from '../utils/date';
 import './Schedule.css';
 
-/** 로컬 날짜 YYYY-MM-DD (toISOString 사용 시 UTC로 하루 밀릴 수 있음) */
+/** Date → YYYY-MM-DD (이미 로컬 기준 Date일 때 사용). "오늘" 문자열은 toLocalDateString(new Date()) 사용 */
 function formatDate(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -34,6 +35,12 @@ function timeToMinutes(time) {
 }
 
 const MIN_SLOT_HOURS = 2;
+
+/** 주간 스케줄 그리드 표시: 6시 ~ 24시 (18시간) */
+const SCHEDULE_START_HOUR = 6;
+const SCHEDULE_END_HOUR = 24;
+const SCHEDULE_HOURS = SCHEDULE_END_HOUR - SCHEDULE_START_HOUR;
+const SCHEDULE_TOTAL_MINUTES = SCHEDULE_HOURS * 60;
 
 /** 시 선택용 옵션 (0~23시, HH:00 형식). 시작은 0~22만 (종료 최소 2시간 확보) */
 const HOUR_OPTIONS_START = Array.from({ length: 23 }, (_, h) => ({
@@ -444,10 +451,22 @@ export default function Schedule() {
     ? `${baseDate.getFullYear()}년 ${baseDate.getMonth() + 1}월`
     : `${formatDate(weekStart)} ~ ${formatDate(addDays(weekStart, 6))}`;
 
-  if (loading) return <div className="schedule-loading">로딩 중...</div>;
+  if (loading) {
+    return (
+      <div className="schedule-page page-layout">
+        <div className="page-header"><h2>스케줄</h2></div>
+        <div className="page-card">
+          <div className="page-loading">
+            <div className="loading-spinner" />
+            <p>스케줄을 불러오는 중입니다.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="schedule-page">
+    <div className="schedule-page page-layout">
       <div className="page-header">
         <h2>스케줄</h2>
         <div className="schedule-controls">
@@ -776,7 +795,7 @@ export default function Schedule() {
           <div className="week-grid">
             <div className="time-column">
               <div className="time-column-header" aria-hidden />
-              {Array.from({ length: 24 }, (_, h) => (
+              {Array.from({ length: SCHEDULE_HOURS }, (_, i) => SCHEDULE_START_HOUR + i).map((h) => (
                 <div key={h} className="time-cell">
                   {h}:00
                 </div>
@@ -794,15 +813,20 @@ export default function Schedule() {
                       {d.getMonth() + 1}/{d.getDate()}
                     </div>
                     <div className="day-body">
-                      {Array.from({ length: 24 }, (_, h) => (
+                      {Array.from({ length: SCHEDULE_HOURS }, (_, h) => (
                         <div key={h} className="day-hour-line" />
                       ))}
                       {daySlots.map((s) => {
                         const slotResList = slotResMap[s.id] || [];
                         const confirmedCount = s.confirmed_count ?? slotResList.length;
-                        const totalMinutes = 24 * 60;
-                        const top = (s._start / totalMinutes) * 100;
-                        const height = ((s._end - s._start) / totalMinutes) * 100;
+                        const startOffset = SCHEDULE_START_HOUR * 60;
+                        let top = ((s._start - startOffset) / SCHEDULE_TOTAL_MINUTES) * 100;
+                        let height = ((s._end - s._start) / SCHEDULE_TOTAL_MINUTES) * 100;
+                        if (top < 0) {
+                          height += top;
+                          top = 0;
+                        }
+                        if (top + height > 100) height = 100 - top;
                         const width = 100 / s._cols;
                         const left = width * s._col;
                         return (
@@ -920,7 +944,7 @@ export default function Schedule() {
                       {week.map((d, j) => {
                         if (!d) return <td key={j} className="month-cell empty" />;
                         const dayStr = formatDate(d);
-                        const isToday = dayStr === formatDate(new Date());
+                        const isToday = dayStr === toLocalDateString(new Date());
                         const daySlots = slots.filter((s) => String(s.slot_date).slice(0, 10) === dayStr);
                         return (
                           <td key={j} className={`month-cell ${isToday ? 'month-cell-today' : ''}`}>

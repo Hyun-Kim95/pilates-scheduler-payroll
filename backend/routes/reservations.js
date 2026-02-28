@@ -82,7 +82,7 @@ router.get('/', requireAuth, async (req, res) => {
     const { from, to, schedule_slot_id, member_id } = req.query;
     let sql = `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.created_at,
                r.start_time, r.end_time,
-               s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, s.instructor_id,
+               DATE_FORMAT(s.slot_date, '%Y-%m-%d') AS slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, s.instructor_id,
                i.name AS instructor_name, i.color,
                m.name AS member_name, m.phone AS member_phone
                FROM reservations r
@@ -114,7 +114,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     const [row] = await query(
       `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.reminder_sent_at, r.created_at,
        r.start_time, r.end_time,
-       s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, s.instructor_id, i.name AS instructor_name, i.color,
+       DATE_FORMAT(s.slot_date, '%Y-%m-%d') AS slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, s.instructor_id, i.name AS instructor_name, i.color,
        m.name AS member_name, m.phone AS member_phone
        FROM reservations r
        JOIN schedule_slots s ON r.schedule_slot_id = s.id
@@ -173,7 +173,7 @@ router.post('/', requireAuth, async (req, res) => {
       'INSERT INTO reservations (schedule_slot_id, member_id, start_time, end_time, status) VALUES (?, ?, ?, ?, ?)',
       [schedule_slot_id, member_id, reservationStart, reservationEnd, 'confirmed']
     );
-    const [slotInfo] = await query('SELECT s.slot_date, s.start_time, s.end_time, i.name AS instructor_name FROM schedule_slots s JOIN instructors i ON s.instructor_id = i.id WHERE s.id = ?', [schedule_slot_id]);
+    const [slotInfo] = await query("SELECT DATE_FORMAT(s.slot_date, '%Y-%m-%d') AS slot_date, s.start_time, s.end_time, i.name AS instructor_name FROM schedule_slots s JOIN instructors i ON s.instructor_id = i.id WHERE s.id = ?", [schedule_slot_id]);
     const [memberInfo] = await query('SELECT name, phone FROM members WHERE id = ?', [member_id]);
     if (slotInfo && memberInfo?.phone) {
       sendReservationConfirmed(memberInfo.phone, {
@@ -186,7 +186,7 @@ router.post('/', requireAuth, async (req, res) => {
     const [row] = await query(
       `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.created_at,
        r.start_time, r.end_time,
-       s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time,
+       DATE_FORMAT(s.slot_date, '%Y-%m-%d') AS slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time,
        i.name AS instructor_name, m.name AS member_name
        FROM reservations r
        JOIN schedule_slots s ON r.schedule_slot_id = s.id
@@ -234,6 +234,33 @@ router.patch('/:id/cancel', requireAuth, async (req, res) => {
   }
 });
 
+/** 취소 원복 (상태를 confirmed로 복구) */
+router.patch('/:id/restore', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const [existing] = await query(
+      'SELECT r.id, r.status, s.instructor_id FROM reservations r JOIN schedule_slots s ON r.schedule_slot_id = s.id WHERE r.id = ?',
+      [id]
+    );
+    if (!existing) return res.status(404).json({ error: '예약을 찾을 수 없습니다.' });
+    if (existing.status !== 'cancelled') {
+      return res.status(400).json({ error: '취소된 예약만 원복할 수 있습니다.' });
+    }
+    if (req.user.role === 'instructor' && existing.instructor_id !== req.user.instructorId) {
+      return res.status(403).json({ error: '권한이 없습니다.' });
+    }
+    await query("UPDATE reservations SET status = 'confirmed' WHERE id = ?", [id]);
+    const [row] = await query(
+      `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.created_at FROM reservations r WHERE r.id = ?`,
+      [id]
+    );
+    res.json(row);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '취소 원복 실패' });
+  }
+});
+
 /** 예약 시간 변경 (다른 슬롯으로): 인원 제한 재검증 */
 router.patch('/:id/move', requireAuth, async (req, res) => {
   try {
@@ -273,7 +300,7 @@ router.patch('/:id/move', requireAuth, async (req, res) => {
     await query('UPDATE reservations SET schedule_slot_id = ? WHERE id = ?', [new_slot_id, id]);
     if (send_notification) {
       const [memberRow] = await query('SELECT m.name, m.phone FROM reservations r JOIN members m ON r.member_id = m.id WHERE r.id = ?', [id]);
-      const [slotRow] = await query('SELECT s.slot_date, s.start_time, i.name AS instructor_name FROM schedule_slots s JOIN instructors i ON s.instructor_id = i.id WHERE s.id = ?', [new_slot_id]);
+      const [slotRow] = await query("SELECT DATE_FORMAT(s.slot_date, '%Y-%m-%d') AS slot_date, s.start_time, i.name AS instructor_name FROM schedule_slots s JOIN instructors i ON s.instructor_id = i.id WHERE s.id = ?", [new_slot_id]);
       if (memberRow?.phone && slotRow) {
         sendReservationConfirmed(memberRow.phone, {
           memberName: memberRow.name,
@@ -286,7 +313,7 @@ router.patch('/:id/move', requireAuth, async (req, res) => {
     const [row] = await query(
       `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.created_at,
        r.start_time, r.end_time,
-       s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, i.name AS instructor_name
+       DATE_FORMAT(s.slot_date, '%Y-%m-%d') AS slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, i.name AS instructor_name
        FROM reservations r JOIN schedule_slots s ON r.schedule_slot_id = s.id JOIN instructors i ON s.instructor_id = i.id WHERE r.id = ?`,
       [id]
     );
@@ -346,7 +373,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
     const [row] = await query(
       `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.created_at,
        r.start_time, r.end_time,
-       s.slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, i.name AS instructor_name, m.name AS member_name
+       DATE_FORMAT(s.slot_date, '%Y-%m-%d') AS slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, i.name AS instructor_name, m.name AS member_name
        FROM reservations r
        JOIN schedule_slots s ON r.schedule_slot_id = s.id
        JOIN instructors i ON s.instructor_id = i.id

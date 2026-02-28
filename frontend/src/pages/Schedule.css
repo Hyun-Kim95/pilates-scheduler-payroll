@@ -1,6 +1,11 @@
+/* 스케줄은 가로 폭을 넓게 사용 (다른 페이지와 달리 max-width 제한 없음) */
+.schedule-page.page-layout {
+  max-width: none;
+  width: 100%;
+}
 .schedule-page {
-  max-width: 100%;
   overflow-x: auto;
+  min-width: 0;
 }
 
 .schedule-controls {
@@ -42,11 +47,14 @@
 
 .schedule-week {
   margin-top: 0.5rem;
+  min-width: calc(60px + 7 * 180px + 6 * 0.5rem); /* 시간열 + 7일(최소 180px) + gap → 좁은 화면에서 가로 스크롤 */
+  --schedule-hour-height: 52px; /* 한 시간당 행 높이 (슬롯 안 예약 목록이 더 많이 보이도록) */
 }
 .week-grid {
   display: grid;
   grid-template-columns: 60px 1fr;
   gap: 0.5rem;
+  min-width: 0;
 }
 .time-column {
   display: flex;
@@ -57,15 +65,16 @@
   flex-shrink: 0;
 }
 .time-cell {
-  height: 32px;
+  height: var(--schedule-hour-height, 52px);
   flex-shrink: 0;
   font-size: 0.75rem;
   color: var(--muted-foreground);
 }
 .days-columns {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(180px, 1fr));
   gap: 0.5rem;
+  min-width: 0;
 }
 .day-column {
   background: var(--card);
@@ -73,6 +82,7 @@
   border: 1px solid var(--border);
   box-shadow: var(--shadow-xs);
   overflow: hidden;
+  min-width: 0;
 }
 .day-header {
   min-height: 28px;
@@ -83,14 +93,15 @@
   display: flex;
   align-items: center;
 }
+/* 주간 스케줄: 6시~24시 18시간 표시 (행 높이는 --schedule-hour-height) */
 .day-body {
   position: relative;
-  height: calc(24 * 32px);
+  height: calc(18 * var(--schedule-hour-height, 52px));
   background: var(--background);
 }
 .day-hour-line {
   position: relative;
-  height: 32px;
+  height: var(--schedule-hour-height, 52px);
   border-top: 1px solid rgba(148, 163, 184, 0.3);
 }
 
@@ -102,7 +113,11 @@
   background: var(--muted);
   border-radius: 4px;
   font-size: 0.75rem;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .slot-block {

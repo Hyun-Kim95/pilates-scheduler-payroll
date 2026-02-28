@@ -36,43 +36,48 @@ export default function ChangePassword() {
   };
 
   return (
-    <div>
+    <div className="change-password-page page-layout">
       <div className="page-header">
         <h2>비밀번호 변경</h2>
       </div>
-      <form onSubmit={handleSubmit} className="slot-form" style={{ maxWidth: 400 }}>
-        <input
-          type="password"
-          placeholder="현재 비밀번호"
-          value={current}
-          onChange={(e) => setCurrent(e.target.value)}
-          autoComplete="current-password"
-          required
-        />
-        <input
-          type="password"
-          placeholder="새 비밀번호"
-          value={next}
-          onChange={(e) => setNext(e.target.value)}
-          autoComplete="new-password"
-          required
-        />
-        <input
-          type="password"
-          placeholder="새 비밀번호 확인"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          autoComplete="new-password"
-          required
-        />
-        {error && <div className="schedule-move-error">{error}</div>}
-        {success && <div className="schedule-moving">{success}</div>}
-        <div className="slot-form-actions">
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? '변경 중...' : '비밀번호 변경'}
-          </button>
-        </div>
-      </form>
+      <div className="page-card" style={{ maxWidth: 420, padding: '1.5rem' }}>
+        <form onSubmit={handleSubmit} className="slot-form change-password-form">
+          <input
+            type="password"
+            className="form-input"
+            placeholder="현재 비밀번호"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+          <input
+            type="password"
+            className="form-input"
+            placeholder="새 비밀번호"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+          <input
+            type="password"
+            className="form-input"
+            placeholder="새 비밀번호 확인"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+          {error && <div className="schedule-move-error">{error}</div>}
+          {success && <div className="schedule-moving">{success}</div>}
+          <div className="slot-form-actions">
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? '변경 중...' : '비밀번호 변경'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -89,7 +89,7 @@ export default function Instructors() {
   };
 
   return (
-    <div>
+    <div className="instructors-page page-layout">
       <div className="page-header">
         <h2>강사 관리</h2>
         <div className="page-header-actions">
@@ -98,28 +98,46 @@ export default function Instructors() {
           </button>
         </div>
       </div>
-      {loading ? <p>로딩 중...</p> : (
-        <table className="data-table">
-          <thead>
-            <tr><th>이름</th><th>색상</th><th>요율</th><th>기본급</th><th>연락처</th><th></th></tr>
-          </thead>
-          <tbody>
-            {list.map((i) => (
-              <tr key={i.id}>
-                <td>{i.name}</td>
-                <td><span style={{ display: 'inline-block', width: 20, height: 20, backgroundColor: i.color, borderRadius: 4 }} /></td>
-                <td>{i.rate_type === 'fixed' ? `${Number(i.rate_value).toLocaleString()}원` : `${i.rate_value}%`}</td>
-                <td>{Number(i.base_salary).toLocaleString()}원</td>
-                <td>{i.phone || '-'}</td>
-                <td>
-                  <button type="button" className="btn btn-secondary" onClick={() => openEditModal(i)}>수정</button>
-                  <button type="button" className="btn btn-danger" onClick={() => handleDelete(i.id)}>삭제</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <div className="page-card">
+        {loading ? (
+          <div className="page-loading">
+            <div className="loading-spinner" />
+            <p>강사 목록을 불러오는 중입니다.</p>
+          </div>
+        ) : (
+          <>
+            <div className="page-summary">
+              <span>총 <strong>{list.length}</strong>명</span>
+            </div>
+            {list.length === 0 ? (
+              <div className="page-empty">등록된 강사가 없습니다.</div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr><th>이름</th><th>색상</th><th>요율</th><th>기본급</th><th>연락처</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {list.map((i) => (
+                    <tr key={i.id}>
+                      <td>{i.name}</td>
+                      <td><span className="instructor-color-swatch" style={{ backgroundColor: i.color }} /></td>
+                      <td>{i.rate_type === 'fixed' ? `${Number(i.rate_value).toLocaleString()}원` : `${i.rate_value}%`}</td>
+                      <td>{Number(i.base_salary).toLocaleString()}원</td>
+                      <td>{i.phone || '-'}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button type="button" className="btn btn-secondary" onClick={() => openEditModal(i)}>수정</button>
+                          <button type="button" className="btn btn-danger" onClick={() => handleDelete(i.id)}>삭제</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+      </div>
       {showModal && (
         <div
           className="schedule-modal-backdrop"

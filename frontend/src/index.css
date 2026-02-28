@@ -178,6 +178,7 @@
   table-layout: fixed;
   background: var(--card);
   border: 1px solid var(--border);
+  overflow: hidden;
 }
 .data-table th,
 .data-table td {
@@ -396,5 +397,380 @@
 }
 
 .dashboard-section {
+  margin-top: 1rem;
+}
+
+/* 강사별 예약 테이블: 오늘 슬롯 수 카드와 동일한 테두리 상자로 감싸서 다크모드에서도 선이 보이게 */
+.dashboard-table-wrapper {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  background: var(--card);
+}
+.dashboard-table-wrapper .data-table {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.dashboard-table-wrapper .data-table th,
+.dashboard-table-wrapper .data-table td {
+  border-bottom: 1px solid var(--border);
+}
+.dashboard-table-wrapper .data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* 통계 페이지 */
+.statistics-content {
+  padding: 1rem 1.25rem;
+}
+.stats-section {
+  margin-bottom: 2rem;
+}
+.stats-section:last-child {
+  margin-bottom: 0;
+}
+.stats-section h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.stats-overview-cards {
+  margin-bottom: 0;
+}
+
+.chart-wrap {
+  min-height: 200px;
+  padding: 1rem;
+  background: var(--background);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-top: 0.75rem;
+}
+.chart-wrap h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.chart-pie {
+  max-width: 360px;
+}
+.chart-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.utilization-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+  color: var(--foreground);
+}
+.utilization-bar-bg {
+  height: 28px;
+  background: var(--muted);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.utilization-bar-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: var(--radius);
+  transition: width 0.4s ease;
+}
+
+/* ========== 공통 페이지 레이아웃 (중앙 정렬) ========== */
+.page-layout {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+.page-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.page-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 2rem;
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+
+.page-empty {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 0.95rem;
+}
+
+.page-summary {
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted);
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.page-summary strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+/* 툴바 (헤더 액션 영역) - 예약/정산 등에서 재사용 */
+.page-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.page-toolbar .toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.page-toolbar .toolbar-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.page-header .page-toolbar {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ========== 예약 목록 페이지 ========== */
+.reservations-page {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+.reservations-header .reservations-toolbar {
+  flex: 1;
+  min-width: 0;
+}
+
+.reservations-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.reservations-toolbar .toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.reservations-toolbar .toolbar-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.reservations-toolbar .toolbar-sep {
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+
+.form-input {
+  padding: 0.4rem 0.65rem;
+  font-size: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--foreground);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 25%, transparent);
+}
+
+.form-date {
+  min-width: 8.5rem;
+}
+
+.form-select {
+  min-width: 6rem;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23555' stroke-width='2'%3E%3Cpath d='M2 4 L6 8 L10 4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  padding-right: 1.75rem;
+}
+
+.reservations-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.reservations-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 2rem;
+  color: var(--muted-foreground);
+}
+
+.loading-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.reservations-summary {
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted);
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.reservations-summary .summary-count strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.reservations-empty {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 0.95rem;
+}
+
+.reservations-table {
+  margin: 0;
+}
+
+.reservations-table .th-actions {
+  width: 220px;
+  min-width: 220px;
+}
+
+.reservations-table .cell-date {
+  font-variant-numeric: tabular-nums;
+}
+
+.reservations-table .cell-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.reservations-table .cell-instructor {
+  font-weight: 500;
+}
+
+.reservations-table .cell-member {
+  font-weight: 500;
+}
+
+.reservations-table .cell-actions {
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: visible;
+}
+.reservations-table .cell-actions .action-buttons {
+  overflow: visible;
+}
+
+.reservations-table .row-cancelled {
+  background: color-mix(in oklch, var(--muted) 50%, var(--card));
+}
+
+.reservations-table .row-cancelled td {
+  color: var(--muted-foreground);
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.action-buttons .btn {
+  margin: 0;
+}
+
+/* 상태 뱃지 */
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+}
+
+.badge-confirmed {
+  background: color-mix(in oklch, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+
+.badge-completed {
+  background: color-mix(in oklch, #16a34a 18%, transparent);
+  color: #15803d;
+}
+
+.badge-cancelled {
+  background: color-mix(in oklch, var(--destructive) 14%, transparent);
+  color: var(--destructive);
+}
+
+/* 강사 색상 스와치 */
+.instructor-color-swatch {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+/* 비밀번호 변경 폼 */
+.change-password-form input.form-input {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.change-password-form .slot-form-actions {
   margin-top: 1rem;
 }

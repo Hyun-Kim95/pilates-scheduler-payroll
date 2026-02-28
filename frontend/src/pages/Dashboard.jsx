@@ -49,58 +49,67 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="dashboard">
+    <div className="dashboard page-layout">
       <div className="page-header">
         <h2>대시보드</h2>
         <div className="page-header-actions" />
       </div>
-      {loading && <p>오늘 데이터를 불러오는 중입니다...</p>}
-      {error && <p className="health">{error}</p>}
-      {stats && !loading && !error && (
-        <>
-          <div className="dashboard-cards">
-            <div className="dashboard-card">
-              <div className="dashboard-card-label">오늘 슬롯 수</div>
-              <div className="dashboard-card-value">{stats.slotsCount}</div>
-            </div>
-            <div className="dashboard-card">
-              <div className="dashboard-card-label">오늘 예약 수</div>
-              <div className="dashboard-card-value">{stats.reservationsCount}</div>
-            </div>
-            <div className="dashboard-card">
-              <div className="dashboard-card-label">수업 완료</div>
-              <div className="dashboard-card-value">{stats.completed}</div>
-            </div>
-            <div className="dashboard-card">
-              <div className="dashboard-card-label">진행 예정</div>
-              <div className="dashboard-card-value">{stats.upcoming}</div>
-            </div>
+      <div className="page-card">
+        {loading && (
+          <div className="page-loading">
+            <div className="loading-spinner" />
+            <p>오늘 데이터를 불러오는 중입니다.</p>
           </div>
-          <div className="dashboard-section">
-            <h3>강사별 오늘 예약</h3>
-            {Object.keys(stats.byInstructor).length === 0 ? (
-              <p>오늘 예약이 없습니다.</p>
-            ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>강사</th>
-                    <th>예약 수</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(stats.byInstructor).map(([name, count]) => (
-                    <tr key={name}>
-                      <td>{name}</td>
-                      <td>{count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </>
-      )}
+        )}
+        {error && <div className="page-loading" style={{ color: 'var(--destructive)' }}><p>{error}</p></div>}
+        {stats && !loading && !error && (
+          <>
+            <div className="dashboard-cards" style={{ padding: '1rem 1.25rem' }}>
+              <div className="dashboard-card">
+                <div className="dashboard-card-label">오늘 슬롯 수</div>
+                <div className="dashboard-card-value">{stats.slotsCount}</div>
+              </div>
+              <div className="dashboard-card">
+                <div className="dashboard-card-label">오늘 예약 수</div>
+                <div className="dashboard-card-value">{stats.reservationsCount}</div>
+              </div>
+              <div className="dashboard-card">
+                <div className="dashboard-card-label">수업 완료</div>
+                <div className="dashboard-card-value">{stats.completed}</div>
+              </div>
+              <div className="dashboard-card">
+                <div className="dashboard-card-label">진행 예정</div>
+                <div className="dashboard-card-value">{stats.upcoming}</div>
+              </div>
+            </div>
+            <div className="dashboard-section" style={{ padding: '0 1.25rem 1.25rem' }}>
+              <h3>강사별 오늘 예약</h3>
+              {Object.keys(stats.byInstructor).length === 0 ? (
+                <div className="page-empty">오늘 예약이 없습니다.</div>
+              ) : (
+                <div className="dashboard-table-wrapper">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>강사</th>
+                        <th>예약 수</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(stats.byInstructor).map(([name, count]) => (
+                        <tr key={name}>
+                          <td>{name}</td>
+                          <td>{count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

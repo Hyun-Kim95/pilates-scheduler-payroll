@@ -5,6 +5,7 @@ import { router as membersRouter } from './members.js';
 import { router as scheduleSlotsRouter } from './scheduleSlots.js';
 import { router as reservationsRouter } from './reservations.js';
 import { router as payrollsRouter } from './payrolls.js';
+import { router as statisticsRouter } from './statistics.js';
 import { requireAuth } from '../middleware/auth.js';
 
 export const router = Router();
@@ -16,3 +17,4 @@ router.use('/members', requireAuth, membersRouter);
 router.use('/schedule-slots', requireAuth, scheduleSlotsRouter);
 router.use('/reservations', requireAuth, reservationsRouter);
 router.use('/payrolls', payrollsRouter);
+router.use('/statistics', requireAuth, statisticsRouter);

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query } from '../config/db.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { toLocalYearMonthString } from '../utils/date.js';
 
 /** 월별 정산 계산: (완료된 확정 수업 수 × 요율) + 기본급. 취소/미완료 제외 */
 async function computePayroll(instructor_id, year_month) {
@@ -53,7 +54,7 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
 router.post('/compute', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { year_month } = req.body || {};
-    const ym = year_month || new Date().toISOString().slice(0, 7);
+    const ym = year_month || toLocalYearMonthString(new Date());
     if (!/^\d{4}-\d{2}$/.test(ym)) {
       return res.status(400).json({ error: 'year_month는 YYYY-MM 형식이어야 합니다.' });
     }

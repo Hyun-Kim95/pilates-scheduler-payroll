@@ -66,7 +66,7 @@ export default function Members() {
   };
 
   return (
-    <div>
+    <div className="members-page page-layout">
       <div className="page-header">
         <h2>회원 관리</h2>
         <div className="page-header-actions">
@@ -75,27 +75,45 @@ export default function Members() {
           </button>
         </div>
       </div>
-      {loading ? <p>로딩 중...</p> : (
-        <table className="data-table">
-          <thead>
-            <tr><th>이름</th><th>연락처</th><th>담당 강사</th><th>메모</th><th></th></tr>
-          </thead>
-          <tbody>
-            {list.map((m) => (
-              <tr key={m.id}>
-                <td>{m.name}</td>
-                <td>{m.phone || '-'}</td>
-                <td>{m.instructor_name || '-'}</td>
-                <td>{m.memo || '-'}</td>
-                <td>
-                <button type="button" className="btn btn-secondary" onClick={() => openEditModal(m)}>수정</button>
-                  <button type="button" className="btn btn-danger" onClick={() => handleDelete(m.id)}>삭제</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <div className="page-card">
+        {loading ? (
+          <div className="page-loading">
+            <div className="loading-spinner" />
+            <p>회원 목록을 불러오는 중입니다.</p>
+          </div>
+        ) : (
+          <>
+            <div className="page-summary">
+              <span>총 <strong>{list.length}</strong>명</span>
+            </div>
+            {list.length === 0 ? (
+              <div className="page-empty">등록된 회원이 없습니다.</div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr><th>이름</th><th>연락처</th><th>담당 강사</th><th>메모</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {list.map((m) => (
+                    <tr key={m.id}>
+                      <td>{m.name}</td>
+                      <td>{m.phone || '-'}</td>
+                      <td>{m.instructor_name || '-'}</td>
+                      <td>{m.memo || '-'}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button type="button" className="btn btn-secondary" onClick={() => openEditModal(m)}>수정</button>
+                          <button type="button" className="btn btn-danger" onClick={() => handleDelete(m.id)}>삭제</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+      </div>
       {showModal && (
         <div
           className="schedule-modal-backdrop"

@@ -7,6 +7,7 @@ const menus = [
   { path: '/schedule', label: '스케줄' },
   { path: '/reservations', label: '예약' },
   { path: '/payroll', label: '정산' },
+  { path: '/statistics', label: '통계' },
 ];
 
 export default function Sidebar() {
