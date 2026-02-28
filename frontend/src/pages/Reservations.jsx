@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { listReservations, cancelReservation, restoreReservation, completeReservation, uncompleteReservation } from '../api/reservations';
 import { listMembers } from '../api/members';
 import { listInstructors } from '../api/instructors';
+import { getErrorMessage } from '../utils/error';
 import { timeRangeDisplay } from './Schedule';
 import { toLocalDateString } from '../utils/date';
 
@@ -43,16 +44,16 @@ export default function Reservations() {
   };
 
   const handleComplete = (id) => {
-    completeReservation(id).then(load).catch((err) => alert(err.response?.data?.error || '완료 처리에 실패했습니다.'));
+    completeReservation(id).then(load).catch((err) => alert(getErrorMessage(err, '완료 처리에 실패했습니다.')));
   };
 
   const handleUncomplete = (id) => {
-    uncompleteReservation(id).then(load).catch((err) => alert(err.response?.data?.error || '완료 원복에 실패했습니다.'));
+    uncompleteReservation(id).then(load).catch((err) => alert(getErrorMessage(err, '완료 원복에 실패했습니다.')));
   };
 
   const handleRestore = (id) => {
     if (window.confirm('취소된 예약을 원복하시겠습니까?')) {
-      restoreReservation(id).then(load).catch((err) => alert(err.response?.data?.error || '취소 원복에 실패했습니다.'));
+      restoreReservation(id).then(load).catch((err) => alert(getErrorMessage(err, '취소 원복에 실패했습니다.')));
     }
   };
 

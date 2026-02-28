@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api/auth';
+import { getErrorMessage } from '../utils/error';
 import ThemeToggle from '../components/ThemeToggle';
 import './Login.css';
 
@@ -21,9 +22,8 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(user));
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      const msg = err.response?.data?.error || '로그인에 실패했습니다.';
+      const msg = getErrorMessage(err, '로그인에 실패했습니다.');
       setError(msg);
-      // 계정이 없거나 비밀번호가 틀린 경우 등, 사용자에게 바로 알려주기
       alert(msg);
     } finally {
       setLoading(false);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { listPayrolls, computePayroll } from '../api/payrolls';
 import { toLocalYearMonthString } from '../utils/date';
+import { getErrorMessage } from '../utils/error';
 
 export default function Payroll() {
   const [yearMonth, setYearMonth] = useState(() => toLocalYearMonthString(new Date()));
@@ -30,7 +31,7 @@ export default function Payroll() {
       .catch((err) => {
         const msg = err.response?.status === 403
           ? '정산 계산/반영은 관리자만 가능합니다.'
-          : err.response?.data?.error || '정산 계산에 실패했습니다.';
+          : getErrorMessage(err, '정산 계산에 실패했습니다.');
         setComputeError(msg);
       })
       .finally(() => setComputing(false));

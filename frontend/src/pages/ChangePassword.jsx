@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { changePassword } from '../api/auth';
+import { getErrorMessage } from '../utils/error';
 
 export default function ChangePassword() {
   const [current, setCurrent] = useState('');
@@ -29,7 +30,7 @@ export default function ChangePassword() {
       setNext('');
       setConfirm('');
     } catch (err) {
-      setError(err.response?.data?.error || '비밀번호 변경에 실패했습니다.');
+      setError(getErrorMessage(err, '비밀번호 변경에 실패했습니다.'));
     } finally {
       setLoading(false);
     }

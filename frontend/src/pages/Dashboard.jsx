@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { listScheduleSlots } from '../api/scheduleSlots';
 import { listReservations } from '../api/reservations';
+import { getErrorMessage } from '../utils/error';
 
 function formatDateLabel(d) {
   const y = d.getFullYear();
@@ -43,7 +44,7 @@ export default function Dashboard() {
         });
       })
       .catch((err) => {
-        setError(err.response?.data?.error || '데이터를 불러오지 못했습니다.');
+        setError(getErrorMessage(err, '데이터를 불러오지 못했습니다.'));
       })
       .finally(() => setLoading(false));
   }, []);

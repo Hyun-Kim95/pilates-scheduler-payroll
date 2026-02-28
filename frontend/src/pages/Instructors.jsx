@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { listInstructors, createInstructor, updateInstructor, deleteInstructor } from '../api/instructors';
+import { getErrorMessage } from '../utils/error';
 
 const initialForm = {
   name: '',
@@ -48,7 +49,7 @@ export default function Instructors() {
           load();
         })
         .catch((err) => {
-          alert(err.response?.data?.error || '강사 수정에 실패했습니다.');
+          alert(getErrorMessage(err, '강사 수정에 실패했습니다.'));
         });
     } else {
       createInstructor(form)
@@ -58,7 +59,7 @@ export default function Instructors() {
           load();
         })
         .catch((err) => {
-          alert(err.response?.data?.error || '강사 등록에 실패했습니다.');
+          alert(getErrorMessage(err, '강사 등록에 실패했습니다.'));
         });
     }
   };

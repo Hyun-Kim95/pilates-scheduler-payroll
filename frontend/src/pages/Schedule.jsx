@@ -4,6 +4,7 @@ import { listReservations, moveReservation, createReservation, cancelReservation
 import { listInstructors } from '../api/instructors';
 import { listMembers } from '../api/members';
 import { toLocalDateString } from '../utils/date';
+import { getErrorMessage } from '../utils/error';
 import './Schedule.css';
 
 /** Date → YYYY-MM-DD (이미 로컬 기준 Date일 때 사용). "오늘" 문자열은 toLocalDateString(new Date()) 사용 */
@@ -318,7 +319,7 @@ export default function Schedule() {
       setReservationMemberId('');
       setReservationId(null);
     } catch (err) {
-      setReservationError(err.response?.data?.error || '예약 등록에 실패했습니다.');
+      setReservationError(getErrorMessage(err, '예약 등록에 실패했습니다.'));
     } finally {
       setReservationSaving(false);
     }
@@ -374,7 +375,7 @@ export default function Schedule() {
       setShowSlotEditForm(false);
       setEditingSlot(null);
     } catch (err) {
-      setSlotError(err.response?.data?.error || '슬롯 수정에 실패했습니다.');
+      setSlotError(getErrorMessage(err, '슬롯 수정에 실패했습니다.'));
     }
   };
 
@@ -390,7 +391,7 @@ export default function Schedule() {
       await reloadSlots();
       await reloadReservations();
     } catch (err) {
-      setSlotError(err.response?.data?.error || '슬롯 삭제에 실패했습니다.');
+      setSlotError(getErrorMessage(err, '슬롯 삭제에 실패했습니다.'));
     }
   };
 
@@ -426,7 +427,7 @@ export default function Schedule() {
       setSlotForm({ slot_date: '', start_time: '09:00', end_time: '11:00', instructor_id: '', max_capacity: 6 });
       setShowSlotForm(false);
     } catch (err) {
-      setSlotError(err.response?.data?.error || '슬롯 등록에 실패했습니다.');
+      setSlotError(getErrorMessage(err, '슬롯 등록에 실패했습니다.'));
     }
   };
 
