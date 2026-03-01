@@ -32,18 +32,21 @@ async function computePayroll(instructor_id, year_month) {
 
 export const router = Router();
 
-/** 정산 목록/조회: 관리자만. 강사별·월별 */
+/** 정산 목록/조회: 관리자만. 강사별·월별. 쿼리: limit, offset (페이지네이션). 응답: { items, total } */
 router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { year_month, instructor_id } = req.query;
-    let sql = `SELECT p.id, p.instructor_id, p.\`year_month\`, p.class_count, p.rate_amount, p.base_salary, p.total_amount, p.created_at, i.name AS instructor_name 
-               FROM payrolls p JOIN instructors i ON p.instructor_id = i.id WHERE 1=1`;
+    const limitNum = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 20), 100);
+    const offsetNum = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    let whereSql = 'FROM payrolls p JOIN instructors i ON p.instructor_id = i.id WHERE 1=1';
     const params = [];
-    if (year_month) { sql += ' AND p.`year_month` = ?'; params.push(year_month); }
-    if (instructor_id) { sql += ' AND p.instructor_id = ?'; params.push(instructor_id); }
-    sql += ' ORDER BY p.`year_month` DESC, i.name';
+    if (year_month) { whereSql += ' AND p.`year_month` = ?'; params.push(year_month); }
+    if (instructor_id) { whereSql += ' AND p.instructor_id = ?'; params.push(instructor_id); }
+    const [countRow] = await query(`SELECT COUNT(*) AS cnt ${whereSql}`, params);
+    const total = Number(countRow?.cnt ?? 0);
+    const sql = `SELECT p.id, p.instructor_id, p.\`year_month\`, p.class_count, p.rate_amount, p.base_salary, p.total_amount, p.created_at, i.name AS instructor_name ${whereSql} ORDER BY p.\`year_month\` DESC, i.name LIMIT ${limitNum} OFFSET ${offsetNum}`;
     const rows = await query(sql, params);
-    res.json(rows);
+    res.json({ items: rows, total });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '정산 목록 조회 실패' });

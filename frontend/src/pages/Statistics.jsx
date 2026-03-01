@@ -257,7 +257,7 @@ export default function Statistics() {
             {!memberChartData.length ? (
               <div className="page-empty">데이터가 없습니다.</div>
             ) : (
-              <div className="chart-wrap">
+              <div className="chart-wrap chart-member">
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={memberChartData} layout="vertical" margin={{ top: 5, right: 30, left: 80, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />

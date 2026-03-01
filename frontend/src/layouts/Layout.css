@@ -1,21 +1,27 @@
-/* 전체 앱 컨테이너: 헤더 + 본문(사이드바+콘텐츠) */
+/* 전체 앱 컨테이너: 헤더 + 본문(사이드바+콘텐츠). 데스크톱에서 스크롤은 본문만. */
 .app-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .app-layout {
   display: flex;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar {
   width: 240px;
   min-width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--sidebar);
   color: var(--sidebar-foreground);
-  padding: 1rem 0;
+  padding: 1rem 0 0;
   border-right: 1px solid var(--sidebar-border);
 }
 
@@ -30,6 +36,8 @@
 .sidebar-nav {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .sidebar-nav .nav-item {
@@ -57,14 +65,73 @@
   opacity: 1;
 }
 
+/* 사이드바 맨 밑: 계정 표시 + 비밀번호 변경 + 로그아웃 (메뉴와 분리) */
+.sidebar-footer {
+  flex-shrink: 0;
+  padding: 1rem 1.25rem 1rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--sidebar-border);
+  background: var(--sidebar);
+}
+
+.sidebar-footer-account {
+  padding: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--sidebar-foreground);
+  opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-footer-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sidebar-footer-link {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.sidebar-footer-link:not(.sidebar-footer-logout) {
+  background: var(--sidebar-primary);
+  color: var(--sidebar-primary-foreground);
+  border-color: var(--sidebar-primary);
+}
+
+.sidebar-footer-link:not(.sidebar-footer-logout).active {
+  background: var(--sidebar-primary);
+  color: var(--sidebar-primary-foreground);
+}
+
+.sidebar-footer-logout {
+  background: color-mix(in oklch, var(--destructive) 20%, var(--sidebar));
+  color: var(--destructive);
+  border-color: color-mix(in oklch, var(--destructive) 40%, var(--sidebar-border));
+}
+
 .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -74,56 +141,45 @@
   border-bottom: 1px solid var(--border);
 }
 
+.header-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: var(--foreground);
+  cursor: pointer;
+  margin-right: 0.25rem;
+}
+.header-menu-btn:hover {
+  background: var(--muted);
+}
+.header-menu-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 .header-title {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--foreground);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-.header-user-menu {
-  position: relative;
-}
-
-.header-user-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--background);
-  color: var(--foreground);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.header-user-menu-list {
-  position: absolute;
-  right: 0;
-  top: 110%;
-  min-width: 140px;
-  padding: 0.4rem;
-  border-radius: var(--radius-sm);
-  background: var(--card);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border);
-  z-index: 10;
-}
-
-.header-user-menu-list button {
-  width: 100%;
-  justify-content: flex-start;
-  margin: 0 0 0.25rem;
-}
-.header-user-menu-list button:last-child {
-  margin-bottom: 0;
+  flex-shrink: 0;
 }
 
 .theme-toggle {
@@ -163,20 +219,121 @@
   color: var(--foreground);
 }
 
+/* 사이드바 오버레이 (모바일 드로어 배경) */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 30;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.sidebar-overlay-visible {
+  opacity: 1;
+}
+
 @media (max-width: 768px) {
+  .header-menu-btn {
+    display: inline-flex;
+  }
+  .header {
+    padding: 0.75rem 1rem;
+  }
+  .header-title {
+    font-size: 1rem;
+  }
+  .page-content {
+    padding: 1rem;
+  }
+  .sidebar-overlay {
+    display: block;
+    pointer-events: none;
+  }
+  .sidebar-overlay-visible {
+    pointer-events: auto;
+  }
   .sidebar {
-    width: 64px;
-    min-width: 64px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    min-width: 260px;
+    max-width: 85vw;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: none;
   }
-  .sidebar-brand,
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-xl);
+  }
   .sidebar-nav .nav-item {
-    padding-left: 0.75rem;
-    font-size: 0.9rem;
+    padding: 0.75rem 1.25rem;
+    font-size: 1rem;
   }
-  .sidebar-brand {
-    font-size: 0.85rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+}
+
+@media (min-width: 769px) {
+  .sidebar-overlay {
+    display: none !important;
   }
+  .sidebar.sidebar-open {
+    transform: none;
+  }
+}
+
+/* 비밀번호 변경 모달 (Layout에서 사용, Schedule 미방문 시에도 동일 스타일) */
+.schedule-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.schedule-modal {
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--card);
+  color: var(--card-foreground);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  padding: 1.25rem 1.5rem;
+}
+.schedule-modal h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+.schedule-modal .slot-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.schedule-modal .slot-form input {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--input);
+  background: var(--background);
+  color: var(--foreground);
+}
+.schedule-modal .schedule-move-error {
+  color: var(--destructive);
+  font-size: 0.875rem;
+}
+.schedule-modal .schedule-moving {
+  color: var(--primary);
+  font-size: 0.875rem;
+}
+.schedule-modal .slot-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
 }

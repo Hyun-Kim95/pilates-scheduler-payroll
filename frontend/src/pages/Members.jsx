@@ -1,26 +1,28 @@
 import { useState, useEffect } from 'react';
 import { listMembers, createMember, updateMember, deleteMember } from '../api/members';
 import { listInstructors } from '../api/instructors';
+import { useInfiniteList } from '../hooks/useInfiniteList';
 
+const PAGE_SIZE = 20;
 const initialForm = { name: '', phone: '', instructor_id: '', memo: '' };
 
 export default function Members() {
-  const [list, setList] = useState([]);
+  const { list, total, loading, hasMore, sentinelRef, reset } = useInfiniteList(
+    (offset) => listMembers({ limit: PAGE_SIZE, offset }),
+    { pageSize: PAGE_SIZE }
+  );
   const [instructors, setInstructors] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(initialForm);
   const [editing, setEditing] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  const load = () => {
-    setLoading(true);
-    Promise.all([listMembers(), listInstructors()])
-      .then(([m, i]) => { setList(m); setInstructors(i); })
-      .catch(() => setList([]))
-      .finally(() => setLoading(false));
-  };
+  useEffect(() => {
+    listInstructors()
+      .then((data) => setInstructors(Array.isArray(data) ? data : (data?.items ?? [])))
+      .catch(() => setInstructors([]));
+  }, []);
 
-  useEffect(() => load(), []);
+  const load = () => reset();
 
   const resetForm = () => {
     setForm(initialForm);
@@ -76,7 +78,7 @@ export default function Members() {
         </div>
       </div>
       <div className="page-card">
-        {loading ? (
+        {list.length === 0 && loading ? (
           <div className="page-loading">
             <div className="loading-spinner" />
             <p>회원 목록을 불러오는 중입니다.</p>
@@ -84,11 +86,12 @@ export default function Members() {
         ) : (
           <>
             <div className="page-summary">
-              <span>총 <strong>{list.length}</strong>명</span>
+              <span>총 <strong>{total ?? list.length}</strong>명</span>
             </div>
             {list.length === 0 ? (
               <div className="page-empty">등록된 회원이 없습니다.</div>
             ) : (
+              <div className="table-wrapper">
               <table className="data-table">
                 <thead>
                   <tr><th>이름</th><th>연락처</th><th>담당 강사</th><th>메모</th><th></th></tr>
@@ -110,7 +113,10 @@ export default function Members() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
+            {hasMore && <div ref={sentinelRef} className="infinite-sentinel" />}
+            {loading && list.length > 0 && <div className="page-loading infinite-loading"><div className="loading-spinner" /><p>더 불러오는 중...</p></div>}
           </>
         )}
       </div>

@@ -5,18 +5,22 @@ import { requireAuth, requireAdmin, requireInstructor } from '../middleware/auth
 
 export const router = Router();
 
-/** 목록: 관리자 전체, 강사는 본인만 */
+/** 목록: 관리자 전체, 강사는 본인만. 쿼리: limit, offset (페이지네이션). 응답: { items, total } */
 router.get('/', requireAuth, async (req, res) => {
   try {
-    let sql = 'SELECT id, name, color, rate_type, rate_value, base_salary, phone, active, created_at FROM instructors WHERE 1=1';
+    const limitNum = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 20), 100);
+    const offsetNum = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    let whereSql = 'FROM instructors WHERE 1=1';
     const params = [];
     if (req.user.role === 'instructor') {
-      sql += ' AND id = ?';
+      whereSql += ' AND id = ?';
       params.push(req.user.instructorId);
     }
-    sql += ' ORDER BY name';
+    const [countRow] = await query(`SELECT COUNT(*) AS cnt ${whereSql}`, params);
+    const total = Number(countRow?.cnt ?? 0);
+    const sql = `SELECT id, name, color, rate_type, rate_value, base_salary, phone, active, created_at ${whereSql} ORDER BY name LIMIT ${limitNum} OFFSET ${offsetNum}`;
     const rows = await query(sql, params);
-    res.json(rows);
+    res.json({ items: rows, total });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '강사 목록 조회 실패' });

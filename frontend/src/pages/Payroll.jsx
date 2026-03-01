@@ -2,32 +2,34 @@ import { useState, useEffect } from 'react';
 import { listPayrolls, computePayroll } from '../api/payrolls';
 import { toLocalYearMonthString } from '../utils/date';
 import { getErrorMessage } from '../utils/error';
+import { useInfiniteList } from '../hooks/useInfiniteList';
+
+const PAGE_SIZE = 20;
 
 export default function Payroll() {
   const [yearMonth, setYearMonth] = useState(() => toLocalYearMonthString(new Date()));
-  const [list, setList] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [computing, setComputing] = useState(false);
   const [forbidden, setForbidden] = useState(false);
   const [computeError, setComputeError] = useState('');
 
+  const { list, total, loading, hasMore, sentinelRef, reset } = useInfiniteList(
+    (offset) =>
+      listPayrolls({ year_month: yearMonth, limit: PAGE_SIZE, offset }).catch((err) => {
+        if (err?.response?.status === 403) setForbidden(true);
+        throw err;
+      }),
+    { pageSize: PAGE_SIZE, deps: [yearMonth] }
+  );
+
   useEffect(() => {
-    setLoading(true);
     setForbidden(false);
-    listPayrolls({ year_month: yearMonth })
-      .then((data) => { setList(Array.isArray(data) ? data : []); setForbidden(false); })
-      .catch((err) => {
-        setList([]);
-        setForbidden(err.response?.status === 403);
-      })
-      .finally(() => setLoading(false));
   }, [yearMonth]);
 
   const handleCompute = () => {
     setComputeError('');
     setComputing(true);
     computePayroll(yearMonth)
-      .then((res) => setList(res.items || []))
+      .then(() => reset())
       .catch((err) => {
         const msg = err.response?.status === 403
           ? '정산 계산/반영은 관리자만 가능합니다.'
@@ -64,7 +66,7 @@ export default function Payroll() {
         )}
         {forbidden ? (
           <div className="page-empty payroll-forbidden">정산 조회는 관리자만 가능합니다.</div>
-        ) : loading ? (
+        ) : list.length === 0 && loading ? (
           <div className="page-loading">
             <div className="loading-spinner" />
             <p>정산 데이터를 불러오는 중입니다.</p>
@@ -72,11 +74,12 @@ export default function Payroll() {
         ) : (
           <>
             {list.length > 0 && (
-              <div className="page-summary">총 합계: <strong>{totalSum.toLocaleString()}원</strong></div>
+              <div className="page-summary">총 <strong>{total ?? list.length}</strong>건 · 합계: <strong>{totalSum.toLocaleString()}원</strong></div>
             )}
             {list.length === 0 ? (
               <div className="page-empty">해당 월 정산 데이터가 없습니다.</div>
             ) : (
+              <div className="table-wrapper">
               <table className="payroll-table data-table">
                 <thead>
                   <tr>
@@ -99,7 +102,10 @@ export default function Payroll() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
+            {hasMore && <div ref={sentinelRef} className="infinite-sentinel" />}
+            {loading && list.length > 0 && <div className="page-loading infinite-loading"><div className="loading-spinner" /><p>더 불러오는 중...</p></div>}
           </>
         )}
       </div>

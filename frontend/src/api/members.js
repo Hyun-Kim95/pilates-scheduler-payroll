@@ -1,7 +1,7 @@
 import api from './client';
 
-export function listMembers() {
-  return api.get('/members').then((res) => res.data);
+export function listMembers(params = {}) {
+  return api.get('/members', { params }).then((res) => res.data);
 }
 
 export function createMember(body) {

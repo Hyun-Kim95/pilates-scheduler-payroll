@@ -25,7 +25,8 @@ export default function Dashboard() {
       listScheduleSlots({ from, to }),
       listReservations({ from, to }),
     ])
-      .then(([slots, reservations]) => {
+      .then(([slots, resData]) => {
+        const reservations = Array.isArray(resData) ? resData : (resData?.items ?? []);
         const todayReservations = reservations.filter((r) => r.status === 'confirmed');
         const completed = todayReservations.filter((r) => r.completed).length;
         const upcoming = todayReservations.filter((r) => !r.completed).length;

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { changePassword } from '../api/auth';
 import { getErrorMessage } from '../utils/error';
 
-export default function ChangePassword() {
+export default function ChangePasswordModal({ onClose }) {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -29,6 +29,7 @@ export default function ChangePassword() {
       setCurrent('');
       setNext('');
       setConfirm('');
+      onClose();
     } catch (err) {
       setError(getErrorMessage(err, '비밀번호 변경에 실패했습니다.'));
     } finally {
@@ -37,11 +38,16 @@ export default function ChangePassword() {
   };
 
   return (
-    <div className="change-password-page page-layout">
-      <div className="page-header">
-        <h2>비밀번호 변경</h2>
-      </div>
-      <div className="page-card" style={{ maxWidth: 420, padding: '1.5rem' }}>
+    <div
+      className="schedule-modal-backdrop"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="change-password-title"
+    >
+      <div className="schedule-modal" onClick={(e) => e.stopPropagation()}>
+        <h3 id="change-password-title">비밀번호 변경</h3>
         <form onSubmit={handleSubmit} className="slot-form change-password-form">
           <input
             type="password"
@@ -73,6 +79,9 @@ export default function ChangePassword() {
           {error && <div className="schedule-move-error">{error}</div>}
           {success && <div className="schedule-moving">{success}</div>}
           <div className="slot-form-actions">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              닫기
+            </button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? '변경 중...' : '비밀번호 변경'}
             </button>
@@ -82,4 +91,3 @@ export default function ChangePassword() {
     </div>
   );
 }
-

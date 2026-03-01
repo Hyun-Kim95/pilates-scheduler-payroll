@@ -7,9 +7,13 @@
   overflow-x: auto;
   min-width: 0;
 }
+.schedule-page.schedule-page-mobile-week {
+  overflow-x: hidden;
+}
 
 .schedule-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
@@ -49,6 +53,47 @@
   margin-top: 0.5rem;
   min-width: calc(60px + 7 * 180px + 6 * 0.5rem); /* 시간열 + 7일(최소 180px) + gap → 좁은 화면에서 가로 스크롤 */
   --schedule-hour-height: 52px; /* 한 시간당 행 높이 (슬롯 안 예약 목록이 더 많이 보이도록) */
+}
+
+/* 모바일: 요일 선택 후 하루만 보기 */
+.schedule-week-day-picker {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.25rem;
+}
+.schedule-day-picker-btn {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  min-width: 2.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.schedule-day-picker-btn:hover {
+  background: var(--muted);
+}
+.schedule-day-picker-btn.active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+.schedule-day-picker-dow {
+  font-weight: 600;
+  line-height: 1.2;
+}
+.schedule-day-picker-date {
+  margin-top: 0.15rem;
+  opacity: 0.9;
 }
 .week-grid {
   display: grid;
@@ -453,6 +498,8 @@
 .schedule-modal {
   width: 100%;
   max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
   background: var(--card);
   color: var(--card-foreground);
   border-radius: var(--radius);
@@ -491,8 +538,41 @@
 .slot-form-actions .btn { margin: 0; }
 
 @media (max-width: 768px) {
+  .schedule-week-mobile {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .schedule-week-mobile .week-grid {
+    min-width: 0;
+    max-width: 100%;
+    grid-template-columns: 48px 1fr;
+  }
+  .schedule-week-mobile .days-columns {
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
+  .schedule-week-mobile .day-column {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .schedule-week-mobile .day-body {
+    min-width: 0;
+  }
+  .schedule-week-mobile .time-cell {
+    font-size: 0.7rem;
+  }
   .page-header .schedule-controls {
     width: 100%;
+  }
+  .schedule-modal-backdrop {
+    padding: 1rem;
+    align-items: flex-start;
+    padding-top: 2rem;
+  }
+  .schedule-modal {
+    width: calc(100% - 2rem);
+    margin: 0 auto;
+    padding: 1rem 1.25rem;
   }
   .slot-cell {
     min-width: 70px;
@@ -508,5 +588,24 @@
   .month-slot {
     font-size: 0.65rem;
     padding: 0.15rem 0.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .schedule-week:not(.schedule-week-mobile) {
+    min-width: calc(50px + 7 * 120px + 6 * 0.35rem);
+  }
+  .days-columns {
+    grid-template-columns: repeat(7, minmax(120px, 1fr));
+  }
+  .schedule-week-mobile .week-grid {
+    grid-template-columns: 44px 1fr;
+  }
+  .month-cell {
+    height: 70px;
+    padding: 0.2rem;
+  }
+  .month-table th {
+    font-size: 0.65rem;
   }
 }

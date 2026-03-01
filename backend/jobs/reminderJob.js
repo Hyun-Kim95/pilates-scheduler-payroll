@@ -12,11 +12,9 @@ const REMINDER_AHEAD_HOURS = 1;
 
 let timer = null;
 
-export function startReminderJob() {
-  if (timer) return;
-  const run = async () => {
-    try {
-      const rows = await query(
+/** 1회 실행 (Vercel Cron 등에서 호출) */
+export async function runReminderJobOnce() {
+  const rows = await query(
         `SELECT r.id, r.member_id, m.name AS member_name, m.phone, s.slot_date, s.start_time
          FROM reservations r
          JOIN members m ON r.member_id = m.id
@@ -26,20 +24,27 @@ export function startReminderJob() {
            AND s.slot_date = CURDATE()
            AND s.start_time >= CURTIME()
            AND s.start_time <= DATE_ADD(CURTIME(), INTERVAL ? HOUR)`,
-        [REMINDER_AHEAD_HOURS]
-      );
-      for (const row of rows) {
-        if (row.phone) {
-          const sent = await sendReminder(row.phone, {
-            memberName: row.member_name,
-            slotDate: row.slot_date,
-            startTime: row.start_time,
-          });
-          if (sent) {
-            await query('UPDATE reservations SET reminder_sent_at = NOW() WHERE id = ?', [row.id]);
-          }
-        }
+    [REMINDER_AHEAD_HOURS]
+  );
+  for (const row of rows) {
+    if (row.phone) {
+      const sent = await sendReminder(row.phone, {
+        memberName: row.member_name,
+        slotDate: row.slot_date,
+        startTime: row.start_time,
+      });
+      if (sent) {
+        await query('UPDATE reservations SET reminder_sent_at = NOW() WHERE id = ?', [row.id]);
       }
+    }
+  }
+}
+
+export function startReminderJob() {
+  if (timer) return;
+  const run = async () => {
+    try {
+      await runReminderJobOnce();
     } catch (err) {
       console.error('Reminder job error:', err);
     }

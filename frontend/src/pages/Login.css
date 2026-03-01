@@ -17,6 +17,7 @@
 .login-card {
   width: 100%;
   max-width: 360px;
+  margin: 0 1rem;
   padding: 2rem;
   background: var(--card);
   color: var(--card-foreground);

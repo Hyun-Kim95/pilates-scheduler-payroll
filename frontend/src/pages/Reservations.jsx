@@ -5,12 +5,11 @@ import { listInstructors } from '../api/instructors';
 import { getErrorMessage } from '../utils/error';
 import { timeRangeDisplay } from './Schedule';
 import { toLocalDateString } from '../utils/date';
+import { useInfiniteList } from '../hooks/useInfiniteList';
+
+const PAGE_SIZE = 20;
 
 export default function Reservations() {
-  const [list, setList] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [instructors, setInstructors] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState(() => toLocalDateString(new Date()));
   const [to, setTo] = useState(() => {
     const d = new Date();
@@ -20,24 +19,28 @@ export default function Reservations() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterInstructorId, setFilterInstructorId] = useState('');
   const [filterMemberId, setFilterMemberId] = useState('');
+  const [members, setMembers] = useState([]);
+  const [instructors, setInstructors] = useState([]);
 
-  const load = () => {
-    setLoading(true);
-    const params = { from, to };
-    if (filterMemberId) params.member_id = filterMemberId;
-    listReservations(params).then(setList).catch(() => setList([])).finally(() => setLoading(false));
-  };
+  const { list, total, loading, hasMore, sentinelRef, reset } = useInfiniteList(
+    (offset) => {
+      const params = { from, to, limit: PAGE_SIZE, offset };
+      if (filterMemberId) params.member_id = filterMemberId;
+      return listReservations(params);
+    },
+    { pageSize: PAGE_SIZE, deps: [from, to, filterMemberId] }
+  );
 
   useEffect(() => {
     Promise.all([listMembers(), listInstructors()])
-      .then(([memberList, instructorList]) => {
-        setMembers(memberList || []);
-        setInstructors(instructorList || []);
+      .then(([memberData, instructorData]) => {
+        setMembers(Array.isArray(memberData) ? memberData : (memberData?.items ?? []));
+        setInstructors(Array.isArray(instructorData) ? instructorData : (instructorData?.items ?? []));
       })
       .catch(() => {});
   }, []);
 
-  useEffect(() => load(), [from, to, filterMemberId]);
+  const load = () => reset();
 
   const handleCancel = (id) => {
     if (window.confirm('예약을 취소하시겠습니까?')) cancelReservation(id).then(load);
@@ -142,7 +145,7 @@ export default function Reservations() {
       </div>
 
       <div className="reservations-card">
-        {loading ? (
+        {list.length === 0 && loading ? (
           <div className="reservations-loading">
             <div className="loading-spinner" />
             <p>예약 목록을 불러오는 중입니다.</p>
@@ -150,13 +153,14 @@ export default function Reservations() {
         ) : (
           <>
             <div className="reservations-summary">
-              <span className="summary-count">총 <strong>{filteredList.length}</strong>건</span>
+              <span className="summary-count">총 <strong>{total ?? list.length}</strong>건</span>
             </div>
             {filteredList.length === 0 ? (
               <div className="reservations-empty">
                 <p>조건에 맞는 예약이 없습니다.</p>
               </div>
             ) : (
+              <div className="table-wrapper">
               <table className="data-table reservations-table">
                 <thead>
                   <tr>
@@ -223,7 +227,10 @@ export default function Reservations() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
+            {hasMore && <div ref={sentinelRef} className="infinite-sentinel" />}
+            {loading && list.length > 0 && <div className="reservations-loading infinite-loading"><div className="loading-spinner" /><p>더 불러오는 중...</p></div>}
           </>
         )}
       </div>

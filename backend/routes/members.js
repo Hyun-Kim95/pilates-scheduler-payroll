@@ -4,19 +4,22 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 export const router = Router();
 
-/** 목록: 관리자 전체, 강사는 담당 회원만 */
+/** 목록: 관리자 전체, 강사는 담당 회원만. 쿼리: limit, offset (페이지네이션). 응답: { items, total } */
 router.get('/', requireAuth, async (req, res) => {
   try {
-    let sql = `SELECT m.id, m.name, m.phone, m.instructor_id, m.memo, m.active, m.created_at, i.name AS instructor_name 
-               FROM members m LEFT JOIN instructors i ON m.instructor_id = i.id WHERE 1=1`;
+    const limitNum = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 20), 100);
+    const offsetNum = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    let whereSql = 'FROM members m LEFT JOIN instructors i ON m.instructor_id = i.id WHERE 1=1';
     const params = [];
     if (req.user.role === 'instructor') {
-      sql += ' AND m.instructor_id = ?';
+      whereSql += ' AND m.instructor_id = ?';
       params.push(req.user.instructorId);
     }
-    sql += ' ORDER BY m.name';
+    const [countRow] = await query(`SELECT COUNT(*) AS cnt ${whereSql}`, params);
+    const total = Number(countRow?.cnt ?? 0);
+    const sql = `SELECT m.id, m.name, m.phone, m.instructor_id, m.memo, m.active, m.created_at, i.name AS instructor_name ${whereSql} ORDER BY m.name LIMIT ${limitNum} OFFSET ${offsetNum}`;
     const rows = await query(sql, params);
-    res.json(rows);
+    res.json({ items: rows, total });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '회원 목록 조회 실패' });

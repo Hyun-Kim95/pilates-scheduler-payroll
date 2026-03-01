@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { listInstructors, createInstructor, updateInstructor, deleteInstructor } from '../api/instructors';
 import { getErrorMessage } from '../utils/error';
+import { useInfiniteList } from '../hooks/useInfiniteList';
 
+const PAGE_SIZE = 20;
 const initialForm = {
   name: '',
   color: '#3498db',
@@ -14,18 +16,15 @@ const initialForm = {
 };
 
 export default function Instructors() {
-  const [list, setList] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { list, total, loading, hasMore, sentinelRef, reset } = useInfiniteList(
+    (offset) => listInstructors({ limit: PAGE_SIZE, offset }),
+    { pageSize: PAGE_SIZE }
+  );
   const [form, setForm] = useState(initialForm);
   const [editing, setEditing] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  const load = () => {
-    setLoading(true);
-    listInstructors().then(setList).catch(() => setList([])).finally(() => setLoading(false));
-  };
-
-  useEffect(() => load(), []);
+  const load = () => reset();
 
   const resetForm = () => {
     setForm(initialForm);
@@ -108,11 +107,14 @@ export default function Instructors() {
         ) : (
           <>
             <div className="page-summary">
-              <span>총 <strong>{list.length}</strong>명</span>
+              <span>총 <strong>{total ?? list.length}</strong>명</span>
             </div>
-            {list.length === 0 ? (
+            {list.length === 0 && loading ? (
+              <div className="page-loading"><div className="loading-spinner" /><p>불러오는 중...</p></div>
+            ) : list.length === 0 ? (
               <div className="page-empty">등록된 강사가 없습니다.</div>
             ) : (
+              <div className="table-wrapper">
               <table className="data-table">
                 <thead>
                   <tr><th>이름</th><th>색상</th><th>요율</th><th>기본급</th><th>연락처</th><th></th></tr>
@@ -135,7 +137,10 @@ export default function Instructors() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
+            {hasMore && <div ref={sentinelRef} className="infinite-sentinel" />}
+            {loading && list.length > 0 && <div className="page-loading infinite-loading"><div className="loading-spinner" /><p>더 불러오는 중...</p></div>}
           </>
         )}
       </div>

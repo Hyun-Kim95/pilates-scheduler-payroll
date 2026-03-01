@@ -76,32 +76,36 @@ async function getSlotCapacity(schedule_slot_id) {
 
 export const router = Router();
 
-/** 목록: 기간/슬롯/회원 필터. 강사는 본인 슬롯만 */
+/** 목록: 기간/슬롯/회원 필터. 강사는 본인 슬롯만. 쿼리: limit, offset (페이지네이션). 응답: { items, total } */
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { from, to, schedule_slot_id, member_id } = req.query;
-    let sql = `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.created_at,
-               r.start_time, r.end_time,
-               DATE_FORMAT(s.slot_date, '%Y-%m-%d') AS slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, s.instructor_id,
-               i.name AS instructor_name, i.color,
-               m.name AS member_name, m.phone AS member_phone
-               FROM reservations r
+    const limitNum = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 20), 100);
+    const offsetNum = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    let whereSql = `FROM reservations r
                JOIN schedule_slots s ON r.schedule_slot_id = s.id
                JOIN instructors i ON s.instructor_id = i.id
                JOIN members m ON r.member_id = m.id
                WHERE 1=1`;
     const params = [];
     if (req.user.role === 'instructor') {
-      sql += ' AND s.instructor_id = ?';
+      whereSql += ' AND s.instructor_id = ?';
       params.push(req.user.instructorId);
     }
-    if (from) { sql += ' AND s.slot_date >= ?'; params.push(from); }
-    if (to) { sql += ' AND s.slot_date <= ?'; params.push(to); }
-    if (schedule_slot_id) { sql += ' AND r.schedule_slot_id = ?'; params.push(schedule_slot_id); }
-    if (member_id) { sql += ' AND r.member_id = ?'; params.push(member_id); }
-    sql += ' ORDER BY s.slot_date, s.start_time, r.id';
+    if (from) { whereSql += ' AND s.slot_date >= ?'; params.push(from); }
+    if (to) { whereSql += ' AND s.slot_date <= ?'; params.push(to); }
+    if (schedule_slot_id) { whereSql += ' AND r.schedule_slot_id = ?'; params.push(schedule_slot_id); }
+    if (member_id) { whereSql += ' AND r.member_id = ?'; params.push(member_id); }
+    const [countRow] = await query(`SELECT COUNT(*) AS cnt ${whereSql}`, params);
+    const total = Number(countRow?.cnt ?? 0);
+    const sql = `SELECT r.id, r.schedule_slot_id, r.member_id, r.status, r.completed, r.created_at,
+               r.start_time, r.end_time,
+               DATE_FORMAT(s.slot_date, '%Y-%m-%d') AS slot_date, s.start_time AS slot_start_time, s.end_time AS slot_end_time, s.instructor_id,
+               i.name AS instructor_name, i.color,
+               m.name AS member_name, m.phone AS member_phone
+               ${whereSql} ORDER BY s.slot_date, s.start_time, r.id LIMIT ${limitNum} OFFSET ${offsetNum}`;
     const rows = await query(sql, params);
-    res.json(rows);
+    res.json({ items: rows, total });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '예약 목록 조회 실패' });

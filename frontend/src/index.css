@@ -55,6 +55,10 @@
   --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+  /* 반응형 브레이크포인트 (미디어쿼리에서 사용) */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
 }
 
 .dark {
@@ -169,7 +173,22 @@
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
     font-family: var(--font-sans);
+    overflow-x: hidden;
   }
+}
+
+/* 테이블 가로 스크롤 래퍼 (모바일에서 테이블이 넘칠 때 사용) */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  min-width: 0;
+  border-radius: var(--radius);
+}
+.table-wrapper .data-table,
+.table-wrapper .payroll-table,
+.table-wrapper .reservations-table {
+  min-width: 600px;
 }
 
 /* 기존 테이블/폼 스타일을 테마 변수로 */
@@ -283,11 +302,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem 1.25rem;
   margin-bottom: 1rem;
   background: var(--card);
   border: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-xs);
 }
@@ -298,6 +316,7 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--foreground);
+  line-height: 1.3;
 }
 .page-header-actions {
   display: flex;
@@ -330,7 +349,17 @@
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    justify-content: center;
+  }
+  .page-header-actions:empty {
+    display: none;
+  }
+  .members-page .page-header,
+  .instructors-page .page-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
   }
 }
 
@@ -420,6 +449,10 @@
 .dashboard-table-wrapper .data-table tbody tr:last-child td {
   border-bottom: none;
 }
+.dashboard-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* 통계 페이지 */
 .statistics-content {
@@ -448,6 +481,14 @@
   border-radius: var(--radius);
   border: 1px solid var(--border);
   margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.chart-wrap > * {
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
 }
 .chart-wrap h4 {
   margin: 0 0 0.5rem;
@@ -457,6 +498,8 @@
 }
 .chart-pie {
   max-width: 360px;
+  margin-left: auto;
+  margin-right: auto;
 }
 .chart-note {
   margin: 0.5rem 0 0;
@@ -470,6 +513,12 @@
   font-size: 0.875rem;
   margin-bottom: 0.5rem;
   color: var(--foreground);
+}
+.chart-wrap.chart-bar-single .utilization-legend,
+.chart-wrap.chart-bar-single .utilization-bar-bg,
+.chart-wrap.chart-bar-single .chart-note {
+  align-self: stretch;
+  width: 100%;
 }
 .utilization-bar-bg {
   height: 28px;
@@ -529,6 +578,18 @@
 .page-summary strong {
   color: var(--foreground);
   font-weight: 600;
+}
+
+/* 인피니티 스크롤: sentinel은 교차 감지용, 최소 높이 필요 */
+.infinite-sentinel {
+  min-height: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.infinite-loading {
+  padding: 1rem;
+  margin-top: 0;
 }
 
 /* 툴바 (헤더 액션 영역) - 예약/정산 등에서 재사용 */
@@ -773,4 +834,91 @@
 
 .change-password-form .slot-form-actions {
   margin-top: 1rem;
+}
+
+/* ========== 모바일 공통 (768px 이하) ========== */
+@media (max-width: 768px) {
+  .form-date,
+  .form-select {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+  .reservations-toolbar,
+  .page-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .reservations-toolbar .toolbar-group,
+  .page-toolbar .toolbar-group {
+    flex-wrap: wrap;
+  }
+  .btn {
+    min-height: 44px;
+    padding: 0.5rem 1rem;
+  }
+  .data-table .btn {
+    min-height: 36px;
+    padding: 0.25rem 0.6rem;
+  }
+  .page-header {
+    padding: 0.75rem 1rem;
+  }
+  .page-header h1,
+  .page-header h2 {
+    font-size: 1.1rem;
+  }
+  .page-layout,
+  .reservations-page {
+    padding: 0 0.5rem;
+  }
+  .statistics-content {
+    padding: 0.75rem 1rem;
+    overflow-x: hidden;
+  }
+  .chart-wrap {
+    padding: 0.75rem;
+    min-height: 180px;
+    align-items: stretch;
+  }
+  .chart-wrap .recharts-responsive-container {
+    width: 100% !important;
+    min-width: 0;
+  }
+  .chart-member {
+    width: 100%;
+    min-width: 0;
+  }
+  .chart-member .recharts-responsive-container {
+    width: 100% !important;
+  }
+  .chart-pie {
+    max-width: 100%;
+  }
+  body {
+    font-size: 15px;
+  }
+  .data-table th,
+  .data-table td,
+  .payroll-table th,
+  .payroll-table td,
+  .reservations-table th,
+  .reservations-table td {
+    font-size: 0.875rem;
+  }
+}
+
+/* 매우 좁은 화면 (480px 이하) */
+@media (max-width: 480px) {
+  .page-header h1,
+  .page-header h2 {
+    font-size: 1rem;
+  }
+  .dashboard-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  .dashboard-card-value {
+    font-size: 1.1rem;
+  }
 }

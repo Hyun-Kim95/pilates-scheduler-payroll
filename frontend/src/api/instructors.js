@@ -1,7 +1,7 @@
 import api from './client';
 
-export function listInstructors() {
-  return api.get('/instructors').then((res) => res.data);
+export function listInstructors(params = {}) {
+  return api.get('/instructors', { params }).then((res) => res.data);
 }
 
 export function getInstructor(id) {

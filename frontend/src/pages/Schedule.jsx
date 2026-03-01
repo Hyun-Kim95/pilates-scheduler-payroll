@@ -156,7 +156,16 @@ export default function Schedule() {
   const [reservationEndTime, setReservationEndTime] = useState('');
   const [reservationError, setReservationError] = useState('');
   const [reservationSaving, setReservationSaving] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches);
+  const [mobileDayIndex, setMobileDayIndex] = useState(0);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const getHourFromTime = (t) => {
     if (!t) return null;
@@ -200,6 +209,19 @@ export default function Schedule() {
   }, [baseDate]);
 
   const weekStart = getWeekStart(baseDate);
+  const weekDays = [0, 1, 2, 3, 4, 5, 6].map((dayOff) => addDays(weekStart, dayOff));
+
+  useEffect(() => {
+    const start = getWeekStart(baseDate);
+    const todayStr = formatDate(new Date());
+    for (let i = 0; i < 7; i += 1) {
+      if (formatDate(addDays(start, i)) === todayStr) {
+        setMobileDayIndex(i);
+        break;
+      }
+    }
+  }, [baseDate.getTime()]);
+
   const from = formatDate(view === 'month' ? new Date(baseDate.getFullYear(), baseDate.getMonth(), 1) : weekStart);
   const to = formatDate(
     view === 'month'
@@ -218,9 +240,9 @@ export default function Schedule() {
     ])
       .then(([s, r, i, m]) => {
         setSlots(s);
-        setReservations(r);
-        setInstructors(i);
-        setMembers(m);
+        setReservations(Array.isArray(r) ? r : (r?.items ?? []));
+        setInstructors(Array.isArray(i) ? i : (i?.items ?? []));
+        setMembers(Array.isArray(m) ? m : (m?.items ?? []));
       })
       .finally(() => setLoading(false));
   }, [from, to]);
@@ -230,14 +252,14 @@ export default function Schedule() {
   };
 
   const reloadReservations = () => {
-    listReservations({ from, to }).then(setReservations);
+    listReservations({ from, to }).then((data) => setReservations(Array.isArray(data) ? data : (data?.items ?? [])));
   };
 
   const openSlotCreateModal = () => {
     if (user.role === 'admin' && (!instructors || instructors.length === 0)) {
       // 강사 목록이 비어 있으면 한 번 더 로딩 후 모달 오픈
       listInstructors()
-        .then((list) => setInstructors(Array.isArray(list) ? list : []))
+        .then((list) => setInstructors(Array.isArray(list) ? list : (list?.items ?? [])))
         .finally(() => setShowSlotForm(true));
     } else {
       setShowSlotForm(true);
@@ -454,7 +476,7 @@ export default function Schedule() {
 
   if (loading) {
     return (
-      <div className="schedule-page page-layout">
+      <div className={`schedule-page page-layout ${isMobile && view === 'week' ? 'schedule-page-mobile-week' : ''}`}>
         <div className="page-header"><h2>스케줄</h2></div>
         <div className="page-card">
           <div className="page-loading">
@@ -467,7 +489,7 @@ export default function Schedule() {
   }
 
   return (
-    <div className="schedule-page page-layout">
+    <div className={`schedule-page page-layout ${isMobile && view === 'week' ? 'schedule-page-mobile-week' : ''}`}>
       <div className="page-header">
         <h2>스케줄</h2>
         <div className="schedule-controls">
@@ -792,7 +814,22 @@ export default function Schedule() {
         </div>
       )}
       {view === 'week' ? (
-        <div className="schedule-week">
+        <div className={`schedule-week ${isMobile ? 'schedule-week-mobile' : ''}`}>
+          {isMobile && (
+            <div className="schedule-week-day-picker">
+              {weekDays.map((d, idx) => (
+                <button
+                  key={formatDate(d)}
+                  type="button"
+                  className={idx === mobileDayIndex ? 'schedule-day-picker-btn active' : 'schedule-day-picker-btn'}
+                  onClick={() => setMobileDayIndex(idx)}
+                >
+                  <span className="schedule-day-picker-dow">{['일', '월', '화', '수', '목', '금', '토'][d.getDay()]}</span>
+                  <span className="schedule-day-picker-date">{d.getMonth() + 1}/{d.getDate()}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="week-grid">
             <div className="time-column">
               <div className="time-column-header" aria-hidden />
@@ -803,8 +840,7 @@ export default function Schedule() {
               ))}
             </div>
             <div className="days-columns">
-              {[0, 1, 2, 3, 4, 5, 6].map((dayOff) => {
-                const d = addDays(weekStart, dayOff);
+              {(isMobile ? [weekDays[mobileDayIndex]] : weekDays).map((d) => {
                 const dayStr = formatDate(d);
                 const daySlotsRaw = slots.filter((s) => String(s.slot_date).slice(0, 10) === dayStr);
                 const daySlots = layoutDaySlots(daySlotsRaw);
